@@ -1,346 +1,164 @@
-# OLAF — ESP32-S3 + ESP-IDF
+# OLAF — Observador Local de Ambientes Frigorificados
 
-Firmware desenvolvido para o projeto **OLAF — Observador Local de Ambientes
-Frigorificados**, utilizando uma ESP32-S3 e o framework ESP-IDF.
+Sistema IoT para monitoramento preventivo de câmaras frigoríficas utilizando ESP32, sensores de temperatura e detecção de abertura de porta.
 
-## Objetivo
+Grupo Lamparina
 
-O sistema realiza o monitoramento preventivo de uma câmara frigorífica por
-meio da leitura da temperatura interna e da identificação do estado da porta.
+## Sobre o projeto
 
-A ESP32-S3 realiza o processamento local das informações e controla os
-alertas luminoso e sonoro independentemente da disponibilidade da conexão
-Wi-Fi.
+O OLAF — Observador Local de Ambientes Frigorificados é um sistema embarcado desenvolvido para realizar o monitoramento preventivo de câmaras frigoríficas, identificando situações que possam comprometer a conservação dos produtos armazenados.
 
-## Hardware
+A solução monitora simultaneamente a temperatura interna, o estado da porta e o tempo em que ela permanece aberta, permitindo detectar uma possível causa de alteração térmica antes que seus efeitos se agravem.
 
-O protótipo utiliza:
+O processamento é realizado localmente por um ESP32, responsável por analisar os dados e acionar alertas visuais e sonoros, mesmo sem conexão Wi-Fi. Além disso, as informações são disponibilizadas em um dashboard para acompanhamento remoto.
 
-- ESP32-S3;
-- termistor NTC 10 kΩ;
-- sensor fotoelétrico E18-D80NK;
-- LED;
-- buzzer piezoelétrico ativo.
+O objetivo é proporcionar uma resposta mais rápida e preventiva a situações anormais, contribuindo para a conservação dos produtos e para o funcionamento eficiente do ambiente frigorificado.
 
-## Funcionalidades
+## Arquitetura do sistema
 
-O firmware implementa:
+O OLAF possui uma arquitetura dividida em quatro camadas:
 
-- leitura periódica da temperatura;
-- média de múltiplas amostras do ADC;
-- conversão da resistência do NTC para temperatura;
-- detecção de porta aberta e fechada;
-- filtro temporal do sensor da porta;
-- contagem do tempo de abertura;
-- LED indicador de porta aberta;
-- LED piscante em condição crítica;
-- buzzer para alerta;
-- alarme independente por temperatura;
-- cálculo de temperatura média de referência da câmara;
-- monitoramento da recuperação térmica após fechamento da porta;
-- cálculo adaptativo do tempo máximo permitido de abertura.
+**Sensoriamento:** o NTC 10K MF52 realiza a medição da temperatura, enquanto o E18-D80NK identifica o estado da porta.
 
-## Estrutura
+**Processamento:** o ESP32 realiza a leitura dos sensores, contabiliza o tempo de abertura da porta e determina o acionamento dos alertas.
 
-```text
-olaf_espidf/
-│
-├── CMakeLists.txt
-├── sdkconfig.defaults
-├── README.md
-│
-└── main/
-    ├── CMakeLists.txt
-    ├── app_main.c
-    ├── app_config.h
-    │
-    ├── app_controller.c
-    ├── app_controller.h
-    │
-    ├── door_sensor.c
-    ├── door_sensor.h
-    │
-    ├── temperature_ntc.c
-    ├── temperature_ntc.h
-    │
-    ├── alarm.c
-    ├── alarm.h
-    │
-    ├── adaptive_timeout.c
-    └── adaptive_timeout.h
+**Comunicação:** os dados são enviados via Wi-Fi utilizando o protocolo MQTT e um broker para distribuição das mensagens.
+
+**Supervisão:** os dados são disponibilizados em um dashboard para visualização da temperatura, estado da porta, histórico e alertas.
+
+## Fluxo de funcionamento
+
+![Diagrama de arquitetura do OLAF](docs/fluxo-projeto.png)
+
+Os alertas locais são processados diretamente pelo ESP32 e, portanto, não dependem da conexão Wi-Fi para funcionar.
+
+## Tecnologias utilizadas
+
+### Hardware
+
+Teconologias utilizadas:
+
+- hardware;
+- firmware;
+- comunicação;
+- monitoramento;
+- desenvolvimento;
+
+| Componente | Função |
+| --- | --- |
+| ESP32 | Processamento local, leitura dos sensores e comunicação Wi-Fi |
+| NTC 10K 3 mm MF52 | Medição da temperatura interna |
+| E18-D80NK | Detecção do estado da porta |
+| Buzzer piezoelétrico | Alerta sonoro local |
+| LED | Indicação visual de alerta |
+| Bateria Li-ion 18650 | Alimentação de backup |
+
+### Firmware
+
+- C/C++
+- ESP-IDF
+- FreeRTOS
+- GPIO
+- ADC
+- Wi-Fi
+
+### Desenvolvimento
+
+- Visual Studio Code
+- Extensão Espressif IDF
+- Git
+- GitHub
+
+## Pré-requisitos
+
+Antes de executar o projeto, certifique-se de possuir:
+
+- Visual Studio Code;
+- extensão Espressif IDF instalada;
+- ESP-IDF configurado;
+- Git;
+- cabo USB com suporte à transferência de dados;
+- placa ESP32 compatível;
+- drivers USB necessários para reconhecimento da placa.
+
+Para as funcionalidades remotas também serão necessários:
+
+- acesso a uma rede Wi-Fi 2.4 GHz;
+- broker MQTT;
+- ambiente Grafana configurado.
+
+## Configuração do ESP-IDF no VS Code
+
+### 1. Instalar o Visual Studio Code
+
+Instale o Visual Studio Code no sistema operacional utilizado para desenvolvimento.
+
+### 2. Instalar a extensão ESP-IDF
+
+No VS Code, abra:
+
+Extensions → Pesquisar "ESP-IDF"
+
+Instale a extensão:
+
+Espressif IDF
+
+## Executando o projeto
+
+### 1. Clonar o repositório
+
+```bash
+git clone <URL_DO_REPOSITORIO>
+cd <NOME_PROJETO>
 ```
 
-## Organização do firmware
+### 2. Abrir no Visual Studio Code
 
-### app_main
+No powershell ou cmd, digite “code .” para abrir o projeto no VSCode. Você também pode abrir o VSCode, ir em arquivo -> abrir pasta e selecionar a pasta do projeto.
 
-Ponto de entrada da aplicação.
+### 3. Selecionar o dispositivo ESP32
 
-Inicializa o controlador principal e cria a tarefa responsável pelo
-monitoramento da câmara.
-
-### app_controller
-
-Responsável pela lógica principal do sistema.
-
-Integra:
-
-- sensor da porta;
-- sensor de temperatura;
-- temporização;
-- timeout adaptativo;
-- LED;
-- buzzer.
-
-### door_sensor
-
-Responsável pela leitura do E18-D80NK.
-
-Também aplica um filtro temporal para evitar alterações falsas do estado da
-porta causadas por oscilações rápidas do sinal.
-
-### temperature_ntc
-
-Responsável pela aquisição do NTC utilizando o ADC da ESP32-S3.
-
-Realiza múltiplas amostras do ADC, calcula a média e converte o resultado
-para resistência e temperatura.
-
-### alarm
-
-Responsável pelo LED e pelo buzzer.
-
-Existem três estados:
-
-```text
-NORMAL
-LED apagado
-Buzzer desligado
-
-PORTA ABERTA
-LED aceso
-Buzzer desligado
-
-CRÍTICO
-LED piscando
-Buzzer ligado
-```
-
-### adaptive_timeout
-
-Responsável pelo cálculo do tempo máximo permitido para a porta permanecer
-aberta.
-
-O limite é calculado considerando:
-
-1. temperatura atual da câmara;
-2. temperatura média de referência;
-3. histórico do tempo de recuperação térmica.
-
-A ideia geral utilizada é:
-
-```text
-timeout =
-    timeout_base
-    × fator_temperatura
-    × fator_recuperacao
-```
-
-Quanto mais próxima a temperatura estiver do limite crítico, menor será o
-tempo permitido de abertura.
-
-Da mesma forma, se a câmara apresentar recuperação térmica lenta após
-aberturas anteriores, o sistema reduzirá o limite utilizado nas próximas
-aberturas.
-
-## Funcionamento
-
-Fluxo simplificado:
-
-```text
-              ┌─────────────────┐
-              │  PORTA FECHADA  │
-              └────────┬────────┘
-                       │
-                 monitora NTC
-                       │
-                       ▼
-              calcula temperatura
-                 média/baseline
-                       │
-                 porta abriu?
-                       │
-                      SIM
-                       ▼
-              ┌─────────────────┐
-              │   PORTA ABERTA  │
-              └────────┬────────┘
-                       │
-              calcula timeout
-                 adaptativo
-                       │
-                  LED aceso
-                       │
-                       ▼
-              tempo > timeout?
-                  │         │
-                 NÃO       SIM
-                  │         │
-                  │         ▼
-                  │    LED piscando
-                  │    buzzer ligado
-                  │
-                  ▼
-              porta fechou?
-                       │
-                      SIM
-                       ▼
-              mede recuperação
-                  térmica
-                       │
-                       ▼
-              atualiza histórico
-                       │
-                       ▼
-               PORTA FECHADA
-```
-
-## Timeout adaptativo
-
-O documento do projeto determina que o tempo máximo de abertura seja
-variável de acordo com a temperatura e com o comportamento térmico observado
-na câmara.
-
-Como o documento não define uma equação matemática específica, o firmware
-implementa uma política configurável.
-
-O valor inicial utilizado é:
-
-```text
-Timeout base = 300 segundos
-```
-
-O resultado é limitado por:
-
-```text
-Timeout mínimo = 30 segundos
-Timeout máximo = 420 segundos
-```
-
-Esses valores são parâmetros iniciais e devem ser ajustados durante os
-ensaios do protótipo.
-
-## Recuperação térmica
-
-Quando a porta é fechada, o sistema continua monitorando a temperatura.
-
-Por exemplo:
-
-```text
-Temperatura normal antes da abertura:
-
-2.3 °C
-
-Após abertura e fechamento:
-
-4.1 °C
-
-Recuperação:
-
-4.1
-3.8
-3.4
-3.0
-2.7
-2.5
-2.4
-```
-
-Quando a temperatura retorna para próximo da temperatura média anterior, o
-firmware calcula quanto tempo a recuperação levou.
-
-Esse valor passa a fazer parte do histórico da câmara.
-
-Uma câmara que demora mais para recuperar recebe um timeout menor nas
-aberturas futuras.
+Selecione o modelo de ESP32 utilizado no projeto.
 
 ## Compilação
 
-Configure o alvo:
-
-```bash
-idf.py set-target esp32s3
-```
-
-Compile:
+Pelo terminal configurado do ESP-IDF:
 
 ```bash
 idf.py build
 ```
 
-Grave na ESP32-S3:
+## Gravação no ESP32
+
+Conecte o ESP32 ao computador através do cabo USB.
+
+Pelo terminal:
 
 ```bash
-idf.py -p COMx flash
+idf.py -p PORTA flash
 ```
 
-Para gravar e abrir o monitor serial:
+## Monitor Serial
+
+Para acompanhar os logs gerados pelo ESP32:
 
 ```bash
-idf.py -p COMx flash monitor
+idf.py -p PORTA monitor
 ```
 
-Substitua `COMx` pela porta correspondente à ESP32-S3.
+Também é possível compilar, gravar e abrir o monitor em sequência:
 
-## Configuração dos GPIOs
-
-Os GPIOs estão centralizados em:
-
-```text
-main/app_config.h
+```bash
+idf.py -p PORTA flash monitor
 ```
 
-Isso permite alterar os pinos sem modificar os módulos individuais.
+## Equipe
 
-Os valores fornecidos inicialmente são apenas uma configuração de
-desenvolvimento e devem ser conferidos com o pinout da placa ESP32-S3
-utilizada no protótipo.
+Grupo Lamparina
 
-## NTC
-
-O firmware considera inicialmente:
-
-```text
-R0   = 10 kΩ
-T0   = 25 °C
-Beta = 3950 K
-```
-
-O valor Beta deve ser confirmado de acordo com o termistor MF52 utilizado.
-
-Para melhorar a precisão, recomenda-se realizar calibração utilizando um
-termômetro de referência.
-
-## E18-D80NK
-
-A interface elétrica do E18-D80NK deve ser verificada antes da conexão com
-a ESP32-S3.
-
-Os GPIOs da ESP32-S3 trabalham em 3,3 V e não devem receber diretamente
-tensões superiores ao limite permitido pelo microcontrolador.
-
-Dependendo da versão do E18-D80NK utilizada, pode ser necessária uma
-interface de adaptação de nível.
-
-## Próximas etapas
-
-A arquitetura permite posteriormente adicionar:
-
-- Wi-Fi;
-- cliente MQTT;
-- publicação da temperatura;
-- publicação do estado da porta;
-- publicação do timeout;
-- publicação dos alertas;
-- integração com Grafana/dashboard;
-- armazenamento de parâmetros em NVS.
+| Integrante |
+| --- |
+| Francisco Guilherme Cesário Alcântara |
+| Guilherme Viana Batista |
+| Pedro Henrique Bezerra Simeão |
+| Raissa Karoliny da Silva Rodrigues |
