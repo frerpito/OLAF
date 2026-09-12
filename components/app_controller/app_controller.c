@@ -28,59 +28,40 @@ typedef struct
 {
     /*
      * Estado atual e anterior da porta.
-     *
-     * Manter o estado anterior permite detectar eventos:
-     *
-     * FECHADA -> ABERTA
-     * ABERTA  -> FECHADA
      */
     door_state_t door;
     door_state_t previous_door;
-
 
     /*
      * Última leitura válida do NTC.
      */
     temperature_reading_t temp;
 
-
     /*
      * Indica se existe alarme térmico ativo.
      */
     bool temp_alarm;
-
 
     /*
      * Momento da última leitura de temperatura.
      */
     int64_t last_temp_read_us;
 
-
     /*
      * Controle do temporizador da porta.
      */
     bool door_timer_active;
-
     int64_t door_opened_us;
-
 
     /*
      * Timeout calculado para a abertura atual.
-     *
-     * Esse valor é congelado no momento em que
-     * a porta abre.
      */
     float opening_timeout_s;
 
-
     /*
-     * Temperatura média da câmara antes da abertura.
-     *
-     * Será utilizada posteriormente para verificar
-     * quanto tempo a câmara levou para recuperar.
+     * Temperatura de referência antes da abertura.
      */
     float pre_open_baseline_c;
-
 
     /*
      * Estrutura responsável pelo aprendizado
@@ -91,11 +72,27 @@ typedef struct
 } olaf_state_t;
 
 
-/*
- * Estado global privado deste módulo.
- */
-
 static olaf_state_t s;
+
+
+/* =========================================================
+ * PROTÓTIPOS INTERNOS
+ * ========================================================= */
+
+static bool update_temperature_alarm(
+    bool previous_alarm,
+    float temperature_c
+);
+
+static void on_door_opened(int64_t now_us);
+
+static void on_door_closed(int64_t now_us);
+
+static bool door_timeout_exceeded(int64_t now_us);
+
+static void update_outputs(int64_t now_us);
+
+static void app_controller_task(void *arg);
 
 
 /* =========================================================
@@ -107,12 +104,7 @@ static bool update_temperature_alarm(
     float temperature_c)
 {
     /*
-     * Uma leitura inválida é considerada condição anormal.
-     *
-     * É uma decisão fail-safe:
-     *
-     * se não conseguimos confiar no sensor,
-     * não assumimos que tudo está normal.
+     * Leitura inválida é considerada condição anormal.
      */
     if (!isfinite(temperature_c))
     {
@@ -123,7 +115,6 @@ static bool update_temperature_alarm(
     /*
      * Ativação do alarme.
      */
-
     if (!previous_alarm &&
         temperature_c >= OLAF_TEMP_ALARM_HIGH_C)
     {
@@ -140,7 +131,6 @@ static bool update_temperature_alarm(
     /*
      * Desativação utilizando histerese.
      */
-
     if (previous_alarm &&
         temperature_c <= OLAF_TEMP_ALARM_CLEAR_C)
     {
@@ -167,7 +157,6 @@ static void on_door_opened(int64_t now_us)
     /*
      * Inicia a contagem do tempo.
      */
-
     s.door_timer_active = true;
 
     s.door_opened_us = now_us;
@@ -176,11 +165,7 @@ static void on_door_opened(int64_t now_us)
     /*
      * Guarda a temperatura média de referência
      * existente antes da abertura.
-     *
-     * Essa temperatura será utilizada depois para
-     * verificar a recuperação térmica.
      */
-
     if (s.adaptive.baseline_valid)
     {
         s.pre_open_baseline_c =
@@ -195,16 +180,7 @@ static void on_door_opened(int64_t now_us)
 
     /*
      * Calcula o timeout adaptativo.
-     *
-     * O cálculo considera:
-     *
-     * - temperatura atual;
-     * - histórico de recuperação térmica.
-     *
-     * O valor obtido fica congelado durante
-     * esta abertura.
      */
-
     s.opening_timeout_s =
         adaptive_timeout_calculate(
             &s.adaptive,
@@ -256,7 +232,6 @@ static void on_door_closed(int64_t now_us)
     /*
      * Calcula quanto tempo a porta permaneceu aberta.
      */
-
     if (s.door_timer_active)
     {
         const float open_time_s =
@@ -282,16 +257,12 @@ static void on_door_closed(int64_t now_us)
     /*
      * Encerra o temporizador da porta.
      */
-
     s.door_timer_active = false;
 
 
     /*
-     * A partir deste momento começamos a observar
-     * quanto tempo a câmara demora para retornar
-     * à temperatura existente antes da abertura.
+     * Inicia acompanhamento da recuperação térmica.
      */
-
     adaptive_timeout_start_recovery(
         &s.adaptive,
         s.pre_open_baseline_c,
@@ -310,7 +281,6 @@ static bool door_timeout_exceeded(int64_t now_us)
      * Se não existe temporização ativa,
      * não existe timeout.
      */
-
     if (!s.door_timer_active)
     {
         return false;
@@ -320,19 +290,11 @@ static bool door_timeout_exceeded(int64_t now_us)
     /*
      * A porta também precisa continuar aberta.
      */
-
     if (s.door != DOOR_STATE_OPEN)
     {
         return false;
     }
 
-
-    /*
-     * Calcula:
-     *
-     * tempo decorrido =
-     *      tempo atual - instante da abertura
-     */
 
     const float elapsed_s =
         (float)(
@@ -340,11 +302,6 @@ static bool door_timeout_exceeded(int64_t now_us)
             s.door_opened_us
         ) / 1000000.0f;
 
-
-    /*
-     * Verifica se ultrapassamos o limite calculado
-     * para esta abertura.
-     */
 
     return elapsed_s >= s.opening_timeout_s;
 }
@@ -356,23 +313,9 @@ static bool door_timeout_exceeded(int64_t now_us)
 
 static void update_outputs(int64_t now_us)
 {
-    /*
-     * Verifica o timeout da porta.
-     */
-
     const bool timeout_alarm =
         door_timeout_exceeded(now_us);
 
-
-    /*
-     * Uma condição crítica existe quando:
-     *
-     * 1. porta ultrapassou o timeout
-     *
-     * OU
-     *
-     * 2. temperatura ultrapassou o limite.
-     */
 
     const bool critical =
         timeout_alarm ||
@@ -381,10 +324,8 @@ static void update_outputs(int64_t now_us)
 
     /*
      * PRIORIDADE 1:
-     *
-     * Situação crítica.
+     * situação crítica.
      */
-
     if (critical)
     {
         alarm_set_mode(
@@ -394,11 +335,8 @@ static void update_outputs(int64_t now_us)
 
     /*
      * PRIORIDADE 2:
-     *
-     * Porta aberta, mas ainda dentro
-     * do tempo permitido.
+     * porta aberta dentro do tempo permitido.
      */
-
     else if (s.door == DOOR_STATE_OPEN)
     {
         alarm_set_mode(
@@ -409,7 +347,6 @@ static void update_outputs(int64_t now_us)
     /*
      * Situação normal.
      */
-
     else
     {
         alarm_set_mode(
@@ -419,10 +356,9 @@ static void update_outputs(int64_t now_us)
 
 
     /*
-     * Atualiza comportamentos temporizados,
-     * principalmente o pisca do LED.
+     * Atualiza comportamentos temporizados
+     * do alarme.
      */
-
     alarm_update();
 }
 
@@ -434,42 +370,76 @@ static void update_outputs(int64_t now_us)
 esp_err_t app_controller_init(void)
 {
     /*
-     * Inicializa toda a estrutura com zero.
+     * Limpa o estado do controlador.
      */
-
     s = (olaf_state_t){0};
 
 
-    /*
-     * Inicialização dos módulos.
-     */
-
-    ESP_ERROR_CHECK(
-        door_sensor_init()
-    );
-
-    ESP_ERROR_CHECK(
-        temperature_ntc_init()
-    );
-
-    ESP_ERROR_CHECK(
-        alarm_init()
-    );
+    esp_err_t err;
 
 
     /*
-     * Inicializa o algoritmo adaptativo.
+     * Inicializa sensor da porta.
      */
+    err = door_sensor_init();
 
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(
+            TAG,
+            "Falha ao inicializar sensor da porta: %s",
+            esp_err_to_name(err)
+        );
+
+        return err;
+    }
+
+
+    /*
+     * Inicializa sensor de temperatura.
+     */
+    err = temperature_ntc_init();
+
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(
+            TAG,
+            "Falha ao inicializar sensor de temperatura: %s",
+            esp_err_to_name(err)
+        );
+
+        return err;
+    }
+
+
+    /*
+     * Inicializa sistema de alarme.
+     */
+    err = alarm_init();
+
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(
+            TAG,
+            "Falha ao inicializar alarme: %s",
+            esp_err_to_name(err)
+        );
+
+        return err;
+    }
+
+
+    /*
+     * Inicializa algoritmo adaptativo.
+     */
     adaptive_timeout_init(
         &s.adaptive
     );
 
 
     /*
-     * Obtém o estado inicial da porta.
+     * Obtém estado inicial da porta.
      */
-
     s.door =
         door_sensor_get_state();
 
@@ -488,10 +458,48 @@ esp_err_t app_controller_init(void)
 
 
 /* =========================================================
+ * INICIALIZAÇÃO DA TAREFA
+ * ========================================================= */
+
+esp_err_t app_controller_start(void)
+{
+    BaseType_t task_created =
+        xTaskCreate(
+            app_controller_task,
+            "olaf_controller",
+            6144,
+            NULL,
+            5,
+            NULL
+        );
+
+
+    if (task_created != pdPASS)
+    {
+        ESP_LOGE(
+            TAG,
+            "Nao foi possivel criar a tarefa principal"
+        );
+
+        return ESP_FAIL;
+    }
+
+
+    ESP_LOGI(
+        TAG,
+        "Tarefa principal criada com sucesso"
+    );
+
+
+    return ESP_OK;
+}
+
+
+/* =========================================================
  * TAREFA PRINCIPAL
  * ========================================================= */
 
-void app_controller_task(void *arg)
+static void app_controller_task(void *arg)
 {
     (void)arg;
 
@@ -500,10 +508,7 @@ void app_controller_task(void *arg)
     {
         /*
          * Tempo atual do sistema.
-         *
-         * esp_timer_get_time() retorna microssegundos.
          */
-
         const int64_t now_us =
             esp_timer_get_time();
 
@@ -517,15 +522,13 @@ void app_controller_task(void *arg)
 
 
         /*
-         * Detectamos uma mudança real de estado.
+         * Detecta mudança de estado.
          */
-
         if (s.door != s.previous_door)
         {
             /*
              * FECHADA -> ABERTA
              */
-
             if (s.door == DOOR_STATE_OPEN)
             {
                 on_door_opened(
@@ -536,7 +539,6 @@ void app_controller_task(void *arg)
             /*
              * ABERTA -> FECHADA
              */
-
             else
             {
                 on_door_closed(
@@ -544,10 +546,6 @@ void app_controller_task(void *arg)
                 );
             }
 
-
-            /*
-             * Atualiza estado anterior.
-             */
 
             s.previous_door =
                 s.door;
@@ -564,11 +562,6 @@ void app_controller_task(void *arg)
             * 1000LL;
 
 
-        /*
-         * Verifica se chegou o momento
-         * de realizar uma nova leitura.
-         */
-
         if (
             (now_us - s.last_temp_read_us)
             >= temp_period_us
@@ -582,11 +575,6 @@ void app_controller_task(void *arg)
                 {0};
 
 
-            /*
-             * Solicita uma nova leitura ao
-             * módulo do NTC.
-             */
-
             esp_err_t temp_result =
                 temperature_ntc_read(
                     &reading
@@ -595,18 +583,13 @@ void app_controller_task(void *arg)
 
             if (temp_result == ESP_OK)
             {
-                /*
-                 * Guarda leitura.
-                 */
-
-                s.temp = reading;
+                s.temp =
+                    reading;
 
 
                 /*
-                 * Atualiza o estado do
-                 * alarme térmico.
+                 * Atualiza alarme térmico.
                  */
-
                 s.temp_alarm =
                     update_temperature_alarm(
                         s.temp_alarm,
@@ -615,18 +598,8 @@ void app_controller_task(void *arg)
 
 
                 /*
-                 * =================================================
-                 * APRENDIZADO DA TEMPERATURA NORMAL
-                 * =================================================
-                 *
-                 * O baseline somente será atualizado
-                 * quando:
-                 *
-                 * - porta estiver fechada;
-                 * - não existir alarme térmico;
-                 * - temperatura estiver dentro da faixa normal.
+                 * Atualiza baseline.
                  */
-
                 adaptive_timeout_update_baseline(
                     &s.adaptive,
                     s.temp.temperature_c,
@@ -636,15 +609,8 @@ void app_controller_task(void *arg)
 
 
                 /*
-                 * =================================================
-                 * RECUPERAÇÃO TÉRMICA
-                 * =================================================
-                 *
-                 * Depois que a porta fecha,
-                 * verificamos se a temperatura está
-                 * retornando ao baseline anterior.
+                 * Atualiza recuperação térmica.
                  */
-
                 if (
                     s.door ==
                     DOOR_STATE_CLOSED
@@ -658,12 +624,8 @@ void app_controller_task(void *arg)
                 }
 
 
-                /*
-                 * Tempo atual de abertura,
-                 * utilizado principalmente no log.
-                 */
-
-                float elapsed_s = 0.0f;
+                float elapsed_s =
+                    0.0f;
 
 
                 if (s.door_timer_active)
@@ -677,17 +639,12 @@ void app_controller_task(void *arg)
 
 
                 /*
-                 * =================================================
-                 * LOG DE MONITORAMENTO
-                 * =================================================
+                 * Log do sistema.
                  */
-
                 ESP_LOGI(
                     TAG,
 
                     "T=%.2f C | "
-                    /*"V=%.0f mV | "
-                    "R=%.0f ohm | "*/
                     "porta=%s | "
                     "tempo=%.1f s | "
                     "limite=%.1f s | "
@@ -696,10 +653,6 @@ void app_controller_task(void *arg)
                     "alarmeTemp=%d",
 
                     s.temp.temperature_c,
-
-                    //s.temp.voltage_mv,
-
-                    //s.temp.resistance_ohm,
 
                     (
                         s.door ==
@@ -727,19 +680,18 @@ void app_controller_task(void *arg)
             else
             {
                 /*
-                 * Falha na leitura do sensor.
+                 * Falha na leitura do NTC.
                  *
-                 * Como estratégia fail-safe,
-                 * ativamos a condição de
-                 * alarme térmico.
+                 * Estratégia fail-safe:
+                 * considera condição térmica anormal.
                  */
-
                 ESP_LOGW(
                     TAG,
                     "Leitura invalida do NTC"
                 );
 
-                s.temp_alarm = true;
+                s.temp_alarm =
+                    true;
             }
         }
 
@@ -747,14 +699,6 @@ void app_controller_task(void *arg)
         /* =================================================
          * 3. LED E BUZZER
          * ================================================= */
-
-        /*
-         * Essa parte é executada localmente.
-         *
-         * Portanto, mesmo quando futuramente
-         * adicionarmos Wi-Fi e MQTT, os alertas
-         * continuarão funcionando sem internet.
-         */
 
         update_outputs(
             now_us
