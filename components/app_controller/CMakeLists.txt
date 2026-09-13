@@ -9,6 +9,7 @@ idf_component_register(
         alarm
         adaptive_timeout
         app_config
+        mqtt_component
 
     PRIV_REQUIRES
         esp_timer

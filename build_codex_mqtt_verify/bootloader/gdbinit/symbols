@@ -1,0 +1,9 @@
+
+
+# Load bootloader symbols
+set confirm off
+    # Bootloader elf was not found
+set confirm on
+
+# Load application symbols
+file F:/hnrik/processos/pnaat/monitoramentor_de_prota/monitoramentor_de_prota/build_codex_mqtt_verify/bootloader/bootloader.elf

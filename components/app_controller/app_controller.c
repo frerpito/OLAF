@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <math.h>
+#include <stdio.h>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -15,6 +16,7 @@
 #include "temperature_ntc.h"
 #include "alarm.h"
 #include "adaptive_timeout.h"
+#include "mqtt_component.h"
 
 
 static const char *TAG = "OLAF";
@@ -91,6 +93,15 @@ static void on_door_closed(int64_t now_us);
 static bool door_timeout_exceeded(int64_t now_us);
 
 static void update_outputs(int64_t now_us);
+
+static void publish_mqtt_state(float elapsed_s);
+
+static void mqtt_command_callback(
+    const char *topic,
+    int topic_len,
+    const char *data,
+    int data_len
+);
 
 static void app_controller_task(void *arg);
 
@@ -364,6 +375,109 @@ static void update_outputs(int64_t now_us)
 
 
 /* =========================================================
+ * MQTT
+ * ========================================================= */
+
+static void mqtt_command_callback(
+    const char *topic,
+    int topic_len,
+    const char *data,
+    int data_len)
+{
+    ESP_LOGI(
+        TAG,
+        "Comando MQTT recebido: %.*s -> %.*s",
+        topic_len,
+        topic,
+        data_len,
+        data
+    );
+}
+
+
+static void publish_mqtt_state(float elapsed_s)
+{
+    static bool command_subscribed = false;
+
+    if (!mqtt_is_connected())
+    {
+        command_subscribed = false;
+        ESP_LOGW(TAG, "MQTT ainda nao conectado; leitura nao publicada");
+        return;
+    }
+
+    if (!command_subscribed)
+    {
+        int msg_id = mqtt_subscribe(
+            "sensor/comando",
+            1
+        );
+
+        if (msg_id >= 0)
+        {
+            command_subscribed = true;
+            ESP_LOGI(TAG, "Inscrito no topico sensor/comando");
+        }
+        else
+        {
+            ESP_LOGW(TAG, "Falha ao assinar sensor/comando");
+        }
+    }
+
+    char payload[64];
+
+    snprintf(
+        payload,
+        sizeof(payload),
+        "%.2f",
+        s.temp.temperature_c
+    );
+
+    mqtt_publish(
+        "sensor/temperatura",
+        payload,
+        1,
+        0
+    );
+
+    mqtt_publish(
+        "sensor/porta",
+        s.door == DOOR_STATE_OPEN ? "aberta" : "fechada",
+        1,
+        0
+    );
+
+    snprintf(
+        payload,
+        sizeof(payload),
+        "%d",
+        s.temp_alarm ? 1 : 0
+    );
+
+    mqtt_publish(
+        "sensor/alarme",
+        payload,
+        1,
+        0
+    );
+
+    snprintf(
+        payload,
+        sizeof(payload),
+        "%.1f",
+        elapsed_s
+    );
+
+    mqtt_publish(
+        "sensor/tempo_porta",
+        payload,
+        1,
+        0
+    );
+}
+
+
+/* =========================================================
  * INICIALIZAÇÃO
  * ========================================================= */
 
@@ -434,6 +548,11 @@ esp_err_t app_controller_init(void)
      */
     adaptive_timeout_init(
         &s.adaptive
+    );
+
+
+    mqtt_set_message_callback(
+        mqtt_command_callback
     );
 
 
@@ -674,6 +793,11 @@ static void app_controller_task(void *arg)
                         : NAN,
 
                     s.temp_alarm
+                );
+
+
+                publish_mqtt_state(
+                    elapsed_s
                 );
             }
 

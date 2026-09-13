@@ -144,8 +144,6 @@ esp_err_t mqtt_init(const mqtt_config_t *config)
     esp_mqtt_client_config_t mqtt_cfg = {
         .broker.address.uri = config->broker_uri,
 
-        .session.protocol_ver = MQTT_PROTOCOL_V_5,
-
         .network.disable_auto_reconnect =
             !config->auto_reconnect,
     };
