@@ -50,7 +50,9 @@ Teconologias utilizadas:
 | NTC 10K 3 mm MF52 | Medição da temperatura interna |
 | E18-D80NK | Detecção do estado da porta |
 | Buzzer piezoelétrico | Alerta sonoro local |
-| LED | Indicação visual de alerta |
+| LED Vermelho | Indicação luminosa de estado da porta |
+| LED Azul | Indicação luminosa do estado de temperatura |
+| LED Amarelo | Indicação luminosa de que recuperação de temperatura |
 | Bateria Li-ion 18650 | Alimentação de backup |
 
 ### Firmware
