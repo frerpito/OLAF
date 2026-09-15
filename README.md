@@ -69,7 +69,7 @@ Teconologias utilizadas:
 - hardware;
 - firmware;
 - comunicação;
-- monitoramento;
+- monitoramento; 
 - desenvolvimento;
 
 | Componente | Função |
@@ -78,9 +78,9 @@ Teconologias utilizadas:
 | NTC 10K 3 mm MF52 | Medição da temperatura interna |
 | E18-D80NK | Detecção do estado da porta |
 | Buzzer piezoelétrico | Alerta sonoro local |
-| LED da porta | Indicação visual do estado da porta e do timeout de abertura |
-| LED de temperatura | Indicação visual da faixa de temperatura |
-| LED de recuperação | Indicação visual do período de recuperação térmica |
+| LED Vermelho | Indicação luminosa de estado da porta |
+| LED Azul | Indicação luminosa do estado de temperatura |
+| LED Amarelo | Indicação luminosa de que recuperação de temperatura |
 | Bateria Li-ion 18650 | Alimentação de backup |
 
 ### Firmware
@@ -99,6 +99,10 @@ Teconologias utilizadas:
 - Git
 - GitHub
 
+### Dashboard
+- Grafana
+- MQTT
+
 ## Pré-requisitos
 
 Antes de executar o projeto, certifique-se de possuir:
@@ -108,7 +112,7 @@ Antes de executar o projeto, certifique-se de possuir:
 - ESP-IDF configurado;
 - Git;
 - cabo USB com suporte à transferência de dados;
-- placa ESP32 compatível;
+- placa ESP32 compatível (no caso do da Prova de Conceito, foi utilizada uma ESP32S3 lora V3);
 - drivers USB necessários para reconhecimento da placa.
 
 Para as funcionalidades remotas também serão necessários:
@@ -136,7 +140,7 @@ Espressif IDF
 ## Executando o projeto
 
 ### 1. Clonar o repositório
-
+Crie uma pasta no seu computador. Dentro dessa pasta, e tendo o git instalado na sua máquina, acesse o terminal do git para conseguir clonar o repositório remoto do projeto.
 ```bash
 git clone <URL_DO_REPOSITORIO>
 cd <NOME_PROJETO>
@@ -160,13 +164,14 @@ idf.py build
 
 ## Gravação no ESP32
 
-Conecte o ESP32 ao computador através do cabo USB.
+Conecte o ESP32 ao computador através do cabo USB. Selecione a porta COMx conectada a ESP32, (por exemplo, COM3, COM4, COM7). Também garanta que está usando a interface USB-UART. 
 
 Pelo terminal:
 
 ```bash
-idf.py -p PORTA flash
+idf.py -p <PORTA> flash
 ```
+No lugar de <PORTA>, digite a porta COMx que está conectada com a ESP32. Por exemlpo, se a porta utilizada for a COM3, então no terminal, digite "idf.py -p COM3 flash"
 
 ## Monitor Serial
 
