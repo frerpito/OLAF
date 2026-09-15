@@ -7,8 +7,14 @@
 /* Sensor de porta E18-D80NK */
 #define OLAF_DOOR_GPIO              GPIO_NUM_5
 
-/* LED de sinalização */
-#define OLAF_LED_GPIO               GPIO_NUM_35
+/* LED de alerta da porta */
+#define OLAF_DOOR_LED_GPIO          GPIO_NUM_35
+
+/* LED de alerta de temperatura */
+#define OLAF_TEMP_LED_GPIO          GPIO_NUM_42
+
+/* LED de recuperação térmica */
+#define OLAF_RECOVERY_LED_GPIO      GPIO_NUM_2
 
 /* Buzzer piezoelétrico ativo */
 #define OLAF_BUZZER_GPIO            GPIO_NUM_36
@@ -156,13 +162,13 @@
 
 #define OLAF_TEMP_NORMAL_MIN_C      24.0f
 
-#define OLAF_TEMP_NORMAL_MAX_C      27.0f
+#define OLAF_TEMP_NORMAL_MAX_C      38.0f
 
 
 
 
 
-#define OLAF_TEMP_ALARM_HIGH_C      34.0f
+#define OLAF_TEMP_ALARM_HIGH_C      36.0f
 
 
 /*
@@ -269,3 +275,16 @@
 
 
 #define OLAF_LED_BLINK_PERIOD_MS    500
+
+
+/* =========================================================
+ * BUZZER
+ * ========================================================= */
+
+#define OLAF_BUZZER_SHORT_BEEP_MS   90
+
+#define OLAF_BUZZER_SHORT_PAUSE_MS  80
+
+#define OLAF_BUZZER_ALERT_ON_MS     1000
+
+#define OLAF_BUZZER_ALERT_OFF_MS    1000
