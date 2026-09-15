@@ -1,186 +1,394 @@
-# OLAF — Observador Local de Ambientes Frigorificados
+# OLAF - Observador Local de Ambientes Frigorificados
 
-Sistema IoT para monitoramento preventivo de câmaras frigoríficas utilizando ESP32, sensores de temperatura e detecção de abertura de porta.
+Sistema IoT embarcado para monitoramento preventivo de camaras frigorificas utilizando ESP32, sensor de temperatura NTC, sensor de porta, alertas locais por LEDs/buzzer e comunicacao remota via MQTT.
 
 Grupo Lamparina
 
-## Sobre o projeto
+## Objetivo
 
-O OLAF — Observador Local de Ambientes Frigorificados é um sistema embarcado desenvolvido para realizar o monitoramento preventivo de câmaras frigoríficas, identificando situações que possam comprometer a conservação dos produtos armazenados.
+O OLAF monitora simultaneamente:
 
-A solução monitora simultaneamente a temperatura interna, o estado da porta e o tempo em que ela permanece aberta, permitindo detectar uma possível causa de alteração térmica antes que seus efeitos se agravem.
+- temperatura interna da camara;
+- estado da porta;
+- tempo que a porta permanece aberta;
+- periodo de recuperacao termica apos alteracao de temperatura;
+- alertas locais visuais e sonoros;
+- publicacao dos dados em um broker MQTT para acompanhamento remoto.
 
-O processamento é realizado localmente por um ESP32, responsável por analisar os dados e acionar alertas visuais e sonoros, mesmo sem conexão Wi-Fi. Além disso, as informações são disponibilizadas em um dashboard para acompanhamento remoto.
+O processamento principal acontece localmente no ESP32. Na versao atual, o firmware tenta conectar ao Wi-Fi antes de iniciar o controlador principal. Depois da inicializacao, as regras de porta, temperatura, recuperacao, LEDs e buzzer sao executadas localmente pelo ESP32.
 
-O objetivo é proporcionar uma resposta mais rápida e preventiva a situações anormais, contribuindo para a conservação dos produtos e para o funcionamento eficiente do ambiente frigorificado.
+## Arquitetura
 
-## Arquitetura do sistema
+O projeto esta organizado em quatro camadas:
 
-O OLAF possui uma arquitetura dividida em quatro camadas:
+| Camada | Funcao |
+| --- | --- |
+| Sensoriamento | Leitura do NTC 10K e deteccao do estado da porta pelo E18-D80NK |
+| Processamento | ESP32 executando o firmware em ESP-IDF/FreeRTOS |
+| Alertas locais | Tres LEDs e um buzzer ativo para indicar porta, temperatura e recuperacao |
+| Comunicacao | Wi-Fi e MQTT para enviar dados ao broker e permitir monitoramento remoto |
 
-**Sensoriamento:** o NTC 10K MF52 realiza a medição da temperatura, enquanto o E18-D80NK identifica o estado da porta.
-
-**Processamento:** o ESP32 realiza a leitura dos sensores, contabiliza o tempo de abertura da porta e determina o acionamento dos alertas.
-
-**Comunicação:** os dados são enviados via Wi-Fi utilizando o protocolo MQTT e um broker para distribuição das mensagens.
-
-**Supervisão:** os dados são disponibilizados em um dashboard para visualização da temperatura, estado da porta, histórico e alertas.
-
-## Fluxo de funcionamento
+Fluxo geral:
 
 ![Diagrama de arquitetura do OLAF](docs/fluxo-projeto.png)
 
-Os alertas locais são processados diretamente pelo ESP32 e, portanto, não dependem da conexão Wi-Fi para funcionar.
+Documentacao complementar:
 
-## Alertas locais
+- [Arquitetura final](docs/arquitetura-final.md)
+- [Esquematico eletrico e ligacoes](docs/esquematico-eletrico.md)
 
-O firmware atual utiliza três LEDs independentes e um buzzer ativo para sinalizar o estado da porta, da temperatura e do período de recuperação térmica.
+## Estrutura Do Codigo
+
+| Caminho | Responsabilidade |
+| --- | --- |
+| `main/app_main.c` | Inicializa Wi-Fi, MQTT e controlador principal |
+| `components/app_config` | Centraliza GPIOs, limites de temperatura, tempos e constantes do sistema |
+| `components/app_controller` | Orquestra leitura dos sensores, logica de porta, temperatura, recuperacao, MQTT e alertas |
+| `components/door_sensor` | Leitura e debounce do sensor de porta E18-D80NK |
+| `components/temperature_ntc` | Leitura ADC, media das amostras e conversao do NTC para graus Celsius |
+| `components/adaptive_timeout` | Calculo do timeout adaptativo da porta e aprendizado da recuperacao termica |
+| `components/alarm` | Controle dos LEDs e do buzzer de forma nao bloqueante |
+| `components/wifi_component` | Inicializacao e conexao Wi-Fi em modo station |
+| `components/mqtt_component` | Inicializacao, publicacao, assinatura e callback MQTT |
+| `docs` | Diagramas, esquematico eletrico e documentacao auxiliar |
+
+## Hardware Necessario
+
+| Item | Quantidade | Observacao |
+| --- | ---: | --- |
+| ESP32-S3 ou placa ESP32 compativel | 1 | O projeto atual foi compilado para ESP32-S3 |
+| Sensor NTC 10K MF52 | 1 | Sensor de temperatura |
+| Resistor 10 kOhm | 1 | Resistor fixo do divisor de tensao do NTC |
+| Sensor de porta E18-D80NK | 1 | Sensor infravermelho usado para detectar porta aberta/fechada |
+| Buzzer piezoeletrico ativo | 1 | Alerta sonoro local |
+| LED vermelho para porta | 1 | Indica estado/alerta da porta |
+| LED azul para temperatura | 1 | Indica faixa de temperatura |
+| LED amarelo para recuperacao | 1 | Indica janela de recuperacao termica |
+| Resistores 220 Ohm ou 330 Ohm | 3 | Limitacao de corrente dos LEDs |
+| Protoboard ou placa de montagem | 1 | Para prototipo |
+| Jumpers | Conforme necessario | Ligacoes eletricas |
+| Fonte 3.3 V/5 V adequada | 1 | Depende da placa e dos sensores usados |
+| Cabo USB de dados | 1 | Gravacao e monitor serial |
+
+## Ligacoes Eletricas
+
+Os GPIOs atuais ficam definidos em `components/app_config/app_config.h`.
+
+| Sinal | GPIO atual | Ligacao resumida |
+| --- | --- | --- |
+| Sensor de porta E18-D80NK | GPIO5 | Saida digital do sensor para o GPIO5 |
+| NTC 10K | ADC1_CH3 | Ponto central do divisor de tensao ligado ao canal ADC |
+| LED vermelho da porta | GPIO35 | GPIO35 -> resistor -> anodo do LED; catodo -> GND |
+| LED azul de temperatura | GPIO42 | GPIO42 -> resistor -> anodo do LED; catodo -> GND |
+| LED amarelo de recuperacao | GPIO2 | GPIO2 -> resistor -> anodo do LED; catodo -> GND |
+| Buzzer ativo | GPIO36 | GPIO36 controla o buzzer |
+
+Circuito do NTC usado pelo firmware:
+
+```text
+3.3 V
+  |
+  +-- R_FIXED 10 kOhm
+  |
+  +---------- ADC1_CH3
+  |
+  +-- NTC 10K
+  |
+ GND
+```
+
+Observacoes importantes:
+
+- Todos os modulos devem compartilhar o mesmo GND.
+- O ESP32 nao e tolerante a 5 V nos GPIOs. Se o E18-D80NK estiver alimentado em 5 V e sua saida tambem for 5 V, use divisor resistivo, conversor de nivel logico ou interface adequada antes do GPIO5.
+- Para buzzer de maior corrente ou buzzer de 5 V, use transistor/MOSFET de acionamento, resistor de base/gate adequado e GND comum. Nao alimente carga alta diretamente pelo GPIO.
+- Veja o guia completo em [docs/esquematico-eletrico.md](docs/esquematico-eletrico.md).
+
+## Alertas Locais
+
+O firmware utiliza tres LEDs independentes e um buzzer ativo.
 
 ### LEDs
 
-| Sinalização | GPIO atual | Comportamento |
-| --- | --- | --- |
-| LED da porta | GPIO35 | Permanece apagado com a porta fechada. Acende fixo quando a porta está aberta dentro do tempo permitido. Pisca quando a porta fica aberta além do timeout adaptativo. |
-| LED de temperatura | GPIO42 | Permanece aceso fixo quando a temperatura está dentro da faixa aceitável. Começa a piscar assim que a temperatura sai da faixa aceitável, mesmo durante o tempo de recuperação. Volta a ficar fixo quando a temperatura retorna ao limite normal. |
-| LED de recuperação térmica | GPIO2 | Permanece apagado em operação normal. Acende enquanto existe uma janela de recuperação ativa e a temperatura ainda está fora da faixa aceitável. Apaga quando a temperatura volta ao normal ou quando não há recuperação em andamento. |
+| LED | Cor recomendada | GPIO atual | Estado | Significado |
+| --- | --- | --- | --- | --- |
+| Porta | Vermelho | GPIO35 | Apagado | Porta fechada |
+| Porta | Vermelho | GPIO35 | Aceso fixo | Porta aberta, ainda dentro do tempo permitido |
+| Porta | Vermelho | GPIO35 | Piscando | Porta aberta alem do timeout adaptativo; a porta deve ser fechada |
+| Temperatura | Azul | GPIO42 | Aceso fixo | Temperatura dentro da faixa aceitavel |
+| Temperatura | Azul | GPIO42 | Piscando | Temperatura fora da faixa aceitavel; o sistema esta aguardando recuperacao ou ja confirmou alerta termico |
+| Recuperacao | Amarelo | GPIO2 | Apagado | Nao ha recuperacao termica em andamento |
+| Recuperacao | Amarelo | GPIO2 | Aceso fixo | Janela de recuperacao ativa enquanto a temperatura ainda esta fora da faixa aceitavel |
+
+O periodo de pisca dos LEDs e definido por `OLAF_LED_BLINK_PERIOD_MS`, atualmente `500 ms`.
 
 ### Buzzer
 
-O buzzer está configurado no GPIO36 e segue uma lógica de prioridade para evitar alertas sonoros concorrentes.
+| Situacao | Comportamento sonoro | Prioridade |
+| --- | --- | --- |
+| Porta abriu | Dois bips curtos e rapidos | Baixa |
+| Porta fechou | Dois bips curtos e rapidos | Baixa |
+| Porta aberta alem do timeout | Buzzer alterna 1 segundo ligado e 1 segundo desligado ate a porta ser fechada | Alta |
+| Temperatura fora da faixa durante recuperacao | Buzzer fica silencioso; apenas os LEDs indicam a condicao | Nenhuma |
+| Recuperacao falhou e temperatura continua fora da faixa | Buzzer de temperatura toca alternadamente. Ele toca durante um periodo equivalente ao tempo de recuperacao estimado e depois fica silencioso pelo mesmo periodo, repetindo o ciclo enquanto o problema persistir | Media |
+| Temperatura voltou ao normal | Buzzer de temperatura desliga | - |
 
-Quando a porta abre ou fecha, o buzzer emite dois bips curtos e rápidos para confirmar a mudança de estado.
+A prioridade sonora do sistema e:
 
-Se a porta permanecer aberta além do timeout adaptativo, o buzzer entra em alerta de porta e passa a apitar alternadamente: 1 segundo ligado e 1 segundo desligado. Esse alerta continua até a porta ser fechada.
+1. alerta de porta aberta alem do timeout;
+2. alerta de temperatura apos falha da recuperacao;
+3. bips curtos de abertura/fechamento da porta.
 
-Se a temperatura sair da faixa aceitável, o buzzer não dispara imediatamente. Primeiro, o sistema abre uma janela de recuperação térmica. Durante essa janela, o LED de temperatura pisca e o LED de recuperação fica aceso, mas o buzzer de temperatura permanece silenciado.
+Isso significa que, se a porta e a temperatura estiverem em alerta ao mesmo tempo, o buzzer primeiro atende o alerta da porta. Quando a porta for fechada, o sistema volta a considerar o alarme de temperatura, caso ele ainda esteja ativo.
 
-O alarme sonoro de temperatura só dispara se a recuperação falhar, ou seja, se o tempo de recuperação terminar e a temperatura ainda não tiver voltado ao limite normal. Nesse caso, o buzzer toca alternadamente por um período equivalente ao tempo de recuperação estimado e depois permanece silencioso pelo mesmo período, repetindo esse ciclo enquanto a temperatura continuar fora da faixa.
+## Comunicacao MQTT
 
-Assim que a temperatura volta para a faixa aceitável, o alarme de temperatura é cancelado: o buzzer desliga, o LED de recuperação apaga e o LED de temperatura volta a ficar aceso fixo.
+O broker e configurado por `idf.py menuconfig` em:
 
-Se o alerta da porta e o alerta de temperatura acontecerem ao mesmo tempo, o buzzer dá prioridade ao alerta da porta. Depois que a porta for fechada e o alerta da porta for resolvido, o sistema volta a considerar o alerta de temperatura, caso ele ainda esteja ativo.
+```text
+Configuracao do Projeto -> MQTT Broker URI
+```
 
-## Tecnologias utilizadas
+Exemplo:
 
-### Hardware
+```text
+mqtt://broker.hivemq.com
+mqtt://192.168.1.100:1883
+```
 
-Teconologias utilizadas:
+Topicos usados pelo firmware:
 
-- hardware;
-- firmware;
-- comunicação;
-- monitoramento;
-- desenvolvimento;
+| Topico | Direcao | Payload |
+| --- | --- | --- |
+| `sensor/temperatura` | Publicacao | Temperatura em graus Celsius, exemplo `25.42` |
+| `sensor/porta` | Publicacao | `aberta` ou `fechada` |
+| `sensor/alarme` | Publicacao | `1` quando ha alarme de temperatura confirmado, `0` caso contrario |
+| `sensor/tempo_porta` | Publicacao | Tempo de porta aberta em segundos |
+| `sensor/comando` | Assinatura | Topico reservado para comandos recebidos pelo dispositivo |
+| `olaf/status` | Last Will | Publica `offline` se a conexao MQTT cair de forma inesperada |
 
-| Componente | Função |
+As publicacoes usam QoS 1 e retain 0.
+
+## Dashboard No Grafana
+
+O projeto pode ser acompanhado em um dashboard no Grafana usando os dados publicados pelo ESP32 via MQTT.
+
+O fluxo recomendado e:
+
+```text
+ESP32 -> Broker MQTT -> Fonte/ponte de dados -> Grafana
+```
+
+O Grafana nao recebe MQTT diretamente em uma instalacao padrao. Para visualizar os dados, use uma das abordagens abaixo:
+
+| Opcao | Descricao |
 | --- | --- |
-| ESP32 | Processamento local, leitura dos sensores e comunicação Wi-Fi |
-| NTC 10K 3 mm MF52 | Medição da temperatura interna |
-| E18-D80NK | Detecção do estado da porta |
-| Buzzer piezoelétrico | Alerta sonoro local |
-| LED da porta | Indicação visual do estado da porta e do timeout de abertura |
-| LED de temperatura | Indicação visual da faixa de temperatura |
-| LED de recuperação | Indicação visual do período de recuperação térmica |
-| Bateria Li-ion 18650 | Alimentação de backup |
+| Plugin MQTT/Data Source para Grafana | O Grafana assina os topicos MQTT por meio de um plugin compativel |
+| Node-RED + banco de dados | O Node-RED assina o MQTT e grava em InfluxDB, PostgreSQL ou outro banco; o Grafana le o banco |
+| Telegraf + InfluxDB | O Telegraf assina o MQTT, salva no InfluxDB e o Grafana monta os paineis |
 
-### Firmware
+Paineis sugeridos:
 
-- C/C++
-- ESP-IDF
-- FreeRTOS
-- GPIO
-- ADC
-- Wi-Fi
+| Painel | Topico MQTT | Tipo recomendado |
+| --- | --- | --- |
+| Temperatura atual | `sensor/temperatura` | Gauge ou Time series |
+| Estado da porta | `sensor/porta` | Stat |
+| Alarme de temperatura | `sensor/alarme` | Stat ou alerta |
+| Tempo de porta aberta | `sensor/tempo_porta` | Gauge ou Time series |
+| Status do dispositivo | `olaf/status` | Stat |
 
-### Desenvolvimento
+Para validar o dashboard, primeiro confirme em um cliente MQTT, como HiveMQ WebSocket Client ou MQTT Explorer, que os topicos estao recebendo mensagens. Depois conecte esses mesmos topicos na fonte de dados usada pelo Grafana.
 
-- Visual Studio Code
-- Extensão Espressif IDF
-- Git
-- GitHub
+## Pre-Requisitos De Software
 
-## Pré-requisitos
-
-Antes de executar o projeto, certifique-se de possuir:
-
-- Visual Studio Code;
-- extensão Espressif IDF instalada;
-- ESP-IDF configurado;
 - Git;
-- cabo USB com suporte à transferência de dados;
-- placa ESP32 compatível;
-- drivers USB necessários para reconhecimento da placa.
+- Visual Studio Code;
+- extensao Espressif IDF para VS Code;
+- ESP-IDF 5.5.x configurado;
+- driver USB da placa ESP32;
+- terminal do ESP-IDF ou ambiente com `idf.py` no PATH;
+- broker MQTT acessivel pela mesma rede ou pela internet.
+- Grafana ou outra ferramenta de dashboard, caso seja usado monitoramento visual remoto.
 
-Para as funcionalidades remotas também serão necessários:
+## Como Configurar Do Zero
 
-- acesso a uma rede Wi-Fi 2.4 GHz;
-- broker MQTT;
-- ambiente Grafana configurado.
-
-## Configuração do ESP-IDF no VS Code
-
-### 1. Instalar o Visual Studio Code
-
-Instale o Visual Studio Code no sistema operacional utilizado para desenvolvimento.
-
-### 2. Instalar a extensão ESP-IDF
-
-No VS Code, abra:
-
-Extensions → Pesquisar "ESP-IDF"
-
-Instale a extensão:
-
-Espressif IDF
-
-## Executando o projeto
-
-### 1. Clonar o repositório
+### 1. Clonar o repositorio
 
 ```bash
 git clone <URL_DO_REPOSITORIO>
-cd <NOME_PROJETO>
+cd monitoramentor_de_prota
 ```
 
-### 2. Abrir no Visual Studio Code
+### 2. Abrir no VS Code
 
-No powershell ou cmd, digite “code .” para abrir o projeto no VSCode. Você também pode abrir o VSCode, ir em arquivo -> abrir pasta e selecionar a pasta do projeto.
+```bash
+code .
+```
 
-### 3. Selecionar o dispositivo ESP32
+Tambem e possivel abrir manualmente pelo menu `Arquivo -> Abrir Pasta`.
 
-Selecione o modelo de ESP32 utilizado no projeto.
+### 3. Selecionar o alvo do ESP-IDF
 
-## Compilação
+Para ESP32-S3:
 
-Pelo terminal configurado do ESP-IDF:
+```bash
+idf.py set-target esp32s3
+```
+
+Se a placa usada for outro modelo de ESP32, selecione o alvo correspondente e confira os GPIOs/ADC em `components/app_config/app_config.h`.
+
+### 4. Configurar Wi-Fi e MQTT
+
+Abra o menu de configuracao:
+
+```bash
+idf.py menuconfig
+```
+
+Entre em:
+
+```text
+Configuracao do Projeto
+```
+
+Configure:
+
+| Campo | Exemplo |
+| --- | --- |
+| `WiFi SSID` | Nome da rede Wi-Fi 2.4 GHz |
+| `WiFi Password` | Senha da rede |
+| `MQTT Broker URI` | `mqtt://broker.hivemq.com` ou `mqtt://IP_DO_BROKER:1883` |
+
+Salve e saia do menu.
+
+### 5. Ajustar parametros do projeto
+
+Os principais parametros ficam em:
+
+```text
+components/app_config/app_config.h
+```
+
+Valores importantes:
+
+| Constante | Funcao | Valor atual |
+| --- | --- | --- |
+| `OLAF_TEMP_NORMAL_MAX_C` | Limite superior da faixa aceitavel de temperatura | `35.0f` |
+| `OLAF_TIMEOUT_BASE_S` | Timeout inicial da porta aberta | `300.0f` |
+| `OLAF_TIMEOUT_MIN_S` | Menor timeout permitido | `30.0f` |
+| `OLAF_TIMEOUT_MAX_S` | Maior timeout permitido | `420.0f` |
+| `OLAF_RECOVERY_TARGET_S` | Tempo de recuperacao usado como referencia | `300.0f` |
+| `OLAF_LED_BLINK_PERIOD_MS` | Periodo de pisca dos LEDs | `500` |
+
+## Como Compilar
+
+No terminal configurado do ESP-IDF:
 
 ```bash
 idf.py build
 ```
 
-## Gravação no ESP32
+Resultado esperado:
 
-Conecte o ESP32 ao computador através do cabo USB.
-
-Pelo terminal:
-
-```bash
-idf.py -p PORTA flash
+```text
+Project build complete.
 ```
 
-## Monitor Serial
+## Como Gravar No ESP32
 
-Para acompanhar os logs gerados pelo ESP32:
+Conecte a placa ao computador via USB e identifique a porta serial.
 
-```bash
-idf.py -p PORTA monitor
-```
-
-Também é possível compilar, gravar e abrir o monitor em sequência:
+Windows:
 
 ```bash
-idf.py -p PORTA flash monitor
+idf.py -p COMx flash
 ```
+
+Linux/macOS:
+
+```bash
+idf.py -p /dev/ttyUSB0 flash
+```
+
+Substitua a porta pelo valor correto do seu computador.
+
+## Como Executar E Monitorar
+
+Para gravar e abrir o monitor serial:
+
+```bash
+idf.py -p COMx flash monitor
+```
+
+Para abrir somente o monitor:
+
+```bash
+idf.py -p COMx monitor
+```
+
+Para sair do monitor:
+
+```text
+Ctrl + ]
+```
+
+## Como Confirmar Que Funcionou
+
+No monitor serial, a inicializacao correta deve mostrar mensagens semelhantes a:
+
+```text
+OLAF - Iniciando sistema
+Wi-Fi conectado com sucesso
+MQTT iniciado
+Controlador OLAF inicializado
+Sistema inicializado com sucesso
+```
+
+Durante a execucao, o firmware registra leituras como:
+
+```text
+T=25.40 C | porta=FECHADA | tempo=0.0 s | limite=300.0 s
+```
+
+Teste local:
+
+1. Feche a porta/simule o sensor detectando a porta fechada.
+2. Abra a porta/simule a ausencia de deteccao.
+3. Confirme dois bips curtos no buzzer.
+4. Confirme LED da porta aceso fixo.
+5. Mantenha a porta aberta alem do timeout e confirme LED da porta piscando e buzzer alternando.
+6. Aqueca o NTC ou simule temperatura acima do limite.
+7. Confirme LED de temperatura piscando e LED de recuperacao aceso.
+8. Confirme que o buzzer de temperatura so dispara se a temperatura nao voltar ao normal depois da janela de recuperacao.
+
+Teste MQTT com HiveMQ WebSocket Client ou outro cliente MQTT:
+
+1. Conecte o cliente ao mesmo broker configurado no ESP32.
+2. Assine os topicos `sensor/temperatura`, `sensor/porta`, `sensor/alarme`, `sensor/tempo_porta` e `olaf/status`.
+3. Ligue o ESP32.
+4. Confirme a chegada dos payloads publicados.
+
+## Solucao De Problemas
+
+| Problema | Possivel causa | Acao recomendada |
+| --- | --- | --- |
+| `CONFIG_WIFI_SSID vazio` | Wi-Fi nao configurado | Rode `idf.py menuconfig` e preencha SSID/senha |
+| Wi-Fi nao conecta | Rede 5 GHz, senha incorreta ou sinal fraco | Use rede 2.4 GHz e confira credenciais |
+| MQTT nao conecta | Broker URI incorreto ou sem rede | Teste o broker em outro cliente MQTT e confira URI |
+| Sensor de porta invertido | Nivel logico diferente do esperado | Ajuste `OLAF_DOOR_CLOSED_LEVEL` em `app_config.h` |
+| Temperatura muito errada | Canal ADC, divisor ou Beta incorretos | Confira o divisor NTC, `OLAF_NTC_ADC_CHANNEL` e `OLAF_NTC_BETA` |
+| LED nao acende | Polaridade invertida ou GPIO diferente | Confira resistor, anodo/catodo e GPIO |
+| Buzzer nao toca | Buzzer passivo, ligacao incorreta ou corrente insuficiente | Use buzzer ativo ou circuito de acionamento |
+
+## Checklist Para Entrega Final
+
+- Codigo-fonte presente no repositorio.
+- `README.md` com passos de montagem, configuracao, compilacao, gravacao e validacao.
+- Esquematico eletrico documentado em `docs/esquematico-eletrico.md`.
+- Arquitetura final documentada em `docs/arquitetura-final.md`.
+- Diagrama de fluxo presente em `docs/fluxo-projeto.png`.
+- Pastas de build ignoradas pelo Git (`build/` e `build_*/`).
+- Projeto compilando com `idf.py build`.
 
 ## Equipe
 
@@ -188,7 +396,7 @@ Grupo Lamparina
 
 | Integrante |
 | --- |
-| Francisco Guilherme Cesário Alcântara |
+| Francisco Guilherme Cesario Alcantara |
 | Guilherme Viana Batista |
-| Pedro Henrique Bezerra Simeão |
+| Pedro Henrique Bezerra Simeao |
 | Raissa Karoliny da Silva Rodrigues |

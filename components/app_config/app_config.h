@@ -153,16 +153,21 @@
 
 
 /*
+ * Faixa de temperatura considerada aceitavel para os
+ * ensaios atuais.
  *
- * Valores iniciais para os ensaios.
+ * O LED de temperatura pisca assim que a leitura passa
+ * do limite normal. O buzzer de temperatura so dispara
+ * se a temperatura continuar fora da faixa depois da
+ * janela de recuperacao.
  *
- * Devem ser posteriormente configurados de acordo com
- * a aplicação real da câmara frigorífica.
+ * Estes valores devem ser ajustados de acordo com a
+ * camara frigorifica real antes do uso definitivo.
  */
 
 #define OLAF_TEMP_NORMAL_MIN_C      24.0f
 
-#define OLAF_TEMP_NORMAL_MAX_C      38.0f
+#define OLAF_TEMP_NORMAL_MAX_C      35.0f
 
 
 
@@ -172,18 +177,11 @@
 
 
 /*
- * Histerese:
+ * Limites auxiliares usados pelo calculo adaptativo.
  *
- * Depois que o alarme for ativado em 6 °C,
- * ele somente será removido quando a temperatura
- * cair para 5,5 °C ou menos.
- *
- * Isso evita:
- *
- * 5.99 -> normal
- * 6.01 -> alarme
- * 5.99 -> normal
- * 6.01 -> alarme
+ * A decisao final do buzzer de temperatura fica no
+ * app_controller: primeiro tenta recuperar, depois
+ * dispara se a recuperacao falhar.
  */
 
 #define OLAF_TEMP_ALARM_CLEAR_C     28.0f
