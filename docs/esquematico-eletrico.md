@@ -2,6 +2,8 @@
 
 Este documento descreve as conexoes eletricas usadas pelo firmware atual do OLAF.
 
+![Esquematico eletrico do OLAF](esquematico-eletrico.svg)
+
 ## Resumo Dos GPIOs
 
 | Funcao | GPIO/Canal | Direcao | Observacao |

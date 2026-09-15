@@ -15,7 +15,7 @@ O OLAF monitora simultaneamente:
 - alertas locais visuais e sonoros;
 - publicacao dos dados em um broker MQTT para acompanhamento remoto.
 
-O processamento principal acontece localmente no ESP32. Na versao atual, o firmware tenta conectar ao Wi-Fi antes de iniciar o controlador principal. Depois da inicializacao, as regras de porta, temperatura, recuperacao, LEDs e buzzer sao executadas localmente pelo ESP32.
+O processamento principal acontece localmente no ESP32. Na versao atual, o firmware tenta conectar ao Wi-Fi na inicializacao. Se a conexao falhar depois do numero configurado de tentativas, o sistema desiste da rede, ignora o MQTT e inicia mesmo assim em modo local. As regras de porta, temperatura, recuperacao, LEDs e buzzer continuam funcionando pelo ESP32.
 
 ## Arquitetura
 
@@ -36,6 +36,10 @@ Documentacao complementar:
 
 - [Arquitetura final](docs/arquitetura-final.md)
 - [Esquematico eletrico e ligacoes](docs/esquematico-eletrico.md)
+
+## Esquematico Eletrico
+
+![Esquematico eletrico do OLAF](docs/esquematico-eletrico.svg)
 
 ## Estrutura Do Codigo
 
@@ -168,6 +172,8 @@ Topicos usados pelo firmware:
 | `olaf/status` | Last Will | Publica `offline` se a conexao MQTT cair de forma inesperada |
 
 As publicacoes usam QoS 1 e retain 0.
+
+Se o Wi-Fi nao conectar na inicializacao, o sistema entra em modo local: sensores, LEDs e buzzer continuam funcionando, mas os dados nao sao publicados no MQTT. O numero de tentativas de conexao Wi-Fi e definido no firmware por `WIFI_MAX_RETRY`, atualmente `10`.
 
 ## Dashboard No Grafana
 

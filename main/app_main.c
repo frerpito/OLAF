@@ -16,50 +16,58 @@ void app_main(void)
     esp_err_t err = wifi_connect();
 
     if (err != ESP_OK) {
-        ESP_LOGE(
+        ESP_LOGW(
             TAG,
             "Falha ao conectar no Wi-Fi: %s",
             esp_err_to_name(err)
         );
-        return;
-    }
 
-    ESP_LOGI(TAG, "Wi-Fi conectado com sucesso");
-
-    mqtt_config_t mqtt_config = {
-        .broker_uri = CONFIG_MQTT_BROKER_URI,
-        .username = NULL,
-        .password = NULL,
-        .auto_reconnect = true,
-        .will_topic = "olaf/status",
-        .will_message = "offline",
-        .will_qos = 1,
-        .will_retain = true,
-    };
-
-    err = mqtt_init(&mqtt_config);
-
-    if (err != ESP_OK) {
-        ESP_LOGE(
+        ESP_LOGW(
             TAG,
-            "Falha ao inicializar MQTT: %s",
-            esp_err_to_name(err)
+            "Sistema local sera iniciado sem MQTT"
         );
-        return;
     }
 
-    err = mqtt_start();
+    else {
+        ESP_LOGI(TAG, "Wi-Fi conectado com sucesso");
 
-    if (err != ESP_OK) {
-        ESP_LOGE(
-            TAG,
-            "Falha ao iniciar MQTT: %s",
-            esp_err_to_name(err)
-        );
-        return;
+        mqtt_config_t mqtt_config = {
+            .broker_uri = CONFIG_MQTT_BROKER_URI,
+            .username = NULL,
+            .password = NULL,
+            .auto_reconnect = true,
+            .will_topic = "olaf/status",
+            .will_message = "offline",
+            .will_qos = 1,
+            .will_retain = true,
+        };
+
+        err = mqtt_init(&mqtt_config);
+
+        if (err != ESP_OK) {
+            ESP_LOGW(
+                TAG,
+                "Falha ao inicializar MQTT: %s",
+                esp_err_to_name(err)
+            );
+        }
+
+        else {
+            err = mqtt_start();
+
+            if (err != ESP_OK) {
+                ESP_LOGW(
+                    TAG,
+                    "Falha ao iniciar MQTT: %s",
+                    esp_err_to_name(err)
+                );
+            }
+
+            else {
+                ESP_LOGI(TAG, "MQTT iniciado");
+            }
+        }
     }
-
-    ESP_LOGI(TAG, "MQTT iniciado");
 
     err = app_controller_init();
 
@@ -83,5 +91,5 @@ void app_main(void)
         return;
     }
 
-    ESP_LOGI(TAG, "Sistema inicializado com sucesso");
+    ESP_LOGI(TAG, "Sistema local inicializado com sucesso");
 }
