@@ -66,6 +66,12 @@ typedef struct
     float pre_open_baseline_c;
 
     /*
+     * Momento ate o qual o LED de recuperacao
+     * deve permanecer aceso.
+     */
+    int64_t recovery_led_until_us;
+
+    /*
      * Estrutura responsável pelo aprendizado
      * do comportamento térmico.
      */
@@ -81,9 +87,16 @@ static olaf_state_t s;
  * PROTÓTIPOS INTERNOS
  * ========================================================= */
 
+static bool temperature_above_normal(float temperature_c);
+
+static bool temperature_recovery_active(int64_t now_us);
+
+static void start_temperature_recovery_window(int64_t now_us);
+
 static bool update_temperature_alarm(
     bool previous_alarm,
-    float temperature_c
+    float temperature_c,
+    bool recovery_active
 );
 
 static void on_door_opened(int64_t now_us);
@@ -91,6 +104,8 @@ static void on_door_opened(int64_t now_us);
 static void on_door_closed(int64_t now_us);
 
 static bool door_timeout_exceeded(int64_t now_us);
+
+static float estimated_recovery_time_s(void);
 
 static void update_outputs(int64_t now_us);
 
@@ -112,7 +127,8 @@ static void app_controller_task(void *arg);
 
 static bool update_temperature_alarm(
     bool previous_alarm,
-    float temperature_c)
+    float temperature_c,
+    bool recovery_active)
 {
     /*
      * Leitura inválida é considerada condição anormal.
@@ -122,12 +138,17 @@ static bool update_temperature_alarm(
         return true;
     }
 
+    if (recovery_active)
+    {
+        return false;
+    }
+
 
     /*
      * Ativação do alarme.
      */
     if (!previous_alarm &&
-        temperature_c >= OLAF_TEMP_ALARM_HIGH_C)
+        temperature_above_normal(temperature_c))
     {
         ESP_LOGW(
             TAG,
@@ -143,7 +164,7 @@ static bool update_temperature_alarm(
      * Desativação utilizando histerese.
      */
     if (previous_alarm &&
-        temperature_c <= OLAF_TEMP_ALARM_CLEAR_C)
+        !temperature_above_normal(temperature_c))
     {
         ESP_LOGI(
             TAG,
@@ -165,6 +186,8 @@ static bool update_temperature_alarm(
 
 static void on_door_opened(int64_t now_us)
 {
+    alarm_notify_door_changed();
+
     /*
      * Inicia a contagem do tempo.
      */
@@ -240,6 +263,8 @@ static void on_door_opened(int64_t now_us)
 
 static void on_door_closed(int64_t now_us)
 {
+    alarm_notify_door_changed();
+
     /*
      * Calcula quanto tempo a porta permaneceu aberta.
      */
@@ -271,14 +296,58 @@ static void on_door_closed(int64_t now_us)
     s.door_timer_active = false;
 
 
-    /*
-     * Inicia acompanhamento da recuperação térmica.
-     */
-    adaptive_timeout_start_recovery(
-        &s.adaptive,
-        s.pre_open_baseline_c,
-        now_us
-    );
+    if (temperature_above_normal(s.temp.temperature_c))
+    {
+        /*
+         * Inicia acompanhamento da recuperação térmica
+         * somente quando existe temperatura a recuperar.
+         */
+        adaptive_timeout_start_recovery(
+            &s.adaptive,
+            s.pre_open_baseline_c,
+            now_us
+        );
+
+
+        /*
+         * LED de recuperacao: tempo estimado de recuperacao
+         * mais 1 minuto de margem.
+         */
+        start_temperature_recovery_window(now_us);
+    }
+    else
+    {
+        s.recovery_led_until_us = 0;
+        s.temp_alarm = false;
+    }
+}
+
+
+static bool temperature_above_normal(float temperature_c)
+{
+    return
+        isfinite(temperature_c) &&
+        temperature_c > OLAF_TEMP_NORMAL_MAX_C;
+}
+
+
+static bool temperature_recovery_active(int64_t now_us)
+{
+    return
+        s.recovery_led_until_us > 0 &&
+        now_us < s.recovery_led_until_us;
+}
+
+
+static void start_temperature_recovery_window(int64_t now_us)
+{
+    s.recovery_led_until_us =
+        now_us +
+        (int64_t)(
+            (estimated_recovery_time_s() + 60.0f)
+            *
+            1000000.0f
+        );
 }
 
 
@@ -318,6 +387,21 @@ static bool door_timeout_exceeded(int64_t now_us)
 }
 
 
+static float estimated_recovery_time_s(void)
+{
+    if (
+        s.adaptive.recovery_valid &&
+        isfinite(s.adaptive.recovery_ema_s) &&
+        s.adaptive.recovery_ema_s > 0.0f
+    )
+    {
+        return s.adaptive.recovery_ema_s;
+    }
+
+    return OLAF_RECOVERY_TARGET_S;
+}
+
+
 /* =========================================================
  * CONTROLE DOS ALERTAS
  * ========================================================= */
@@ -327,43 +411,38 @@ static void update_outputs(int64_t now_us)
     const bool timeout_alarm =
         door_timeout_exceeded(now_us);
 
+    const bool recovery_led_active =
+        temperature_recovery_active(now_us) &&
+        temperature_above_normal(s.temp.temperature_c);
 
-    const bool critical =
-        timeout_alarm ||
-        s.temp_alarm;
+    const bool temperature_warning =
+        temperature_above_normal(s.temp.temperature_c);
 
-
-    /*
-     * PRIORIDADE 1:
-     * situação crítica.
-     */
-    if (critical)
+    alarm_status_t alarm_status =
     {
-        alarm_set_mode(
-            ALARM_MODE_CRITICAL
-        );
-    }
+        .door_open =
+            s.door == DOOR_STATE_OPEN,
 
-    /*
-     * PRIORIDADE 2:
-     * porta aberta dentro do tempo permitido.
-     */
-    else if (s.door == DOOR_STATE_OPEN)
-    {
-        alarm_set_mode(
-            ALARM_MODE_DOOR_OPEN
-        );
-    }
+        .door_timeout_alarm =
+            timeout_alarm,
 
-    /*
-     * Situação normal.
-     */
-    else
-    {
-        alarm_set_mode(
-            ALARM_MODE_OFF
-        );
-    }
+        .temperature_warning =
+            temperature_warning,
+
+        .temperature_alarm =
+            s.temp_alarm,
+
+        .recovery_active =
+            recovery_led_active,
+
+        .recovery_time_s =
+            estimated_recovery_time_s()
+    };
+
+
+    alarm_set_status(
+        &alarm_status
+    );
 
 
     /*
@@ -705,6 +784,25 @@ static void app_controller_task(void *arg)
                 s.temp =
                     reading;
 
+                const bool temperature_warning =
+                    temperature_above_normal(s.temp.temperature_c);
+
+                if (!temperature_warning)
+                {
+                    s.recovery_led_until_us = 0;
+                    s.temp_alarm = false;
+                }
+                else if (
+                    !temperature_recovery_active(now_us) &&
+                    !s.temp_alarm
+                )
+                {
+                    start_temperature_recovery_window(now_us);
+                }
+
+                const bool recovery_active =
+                    temperature_recovery_active(now_us);
+
 
                 /*
                  * Atualiza alarme térmico.
@@ -712,7 +810,8 @@ static void app_controller_task(void *arg)
                 s.temp_alarm =
                     update_temperature_alarm(
                         s.temp_alarm,
-                        s.temp.temperature_c
+                        s.temp.temperature_c,
+                        recovery_active
                     );
 
 
