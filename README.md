@@ -73,11 +73,11 @@ Fluxo geral:
 Documentação complementar:
 
 - [Arquitetura final](docs/arquitetura-final.md)
-- [Esquemático elétrico e ligações](docs/esquemático-elétrico.md)
+- [Esquemático elétrico e ligações](docs/esquematico-eletrico.md)
 
 ## Esquemático Elétrico
 
-![Esquemático elétrico do OLAF](docs/esquemático-elétrico.svg)
+![Esquemático elétrico do OLAF](docs/esquematico-eletrico.svg)
 
 ## Estrutura do Código
 
@@ -130,7 +130,7 @@ Observacoes importantes:
 - Todos os módulos devem compartilhar o mesmo GND.
 - O ESP32 não e tolerante a 5 V nos GPIOs. Se o E18-D80NK estiver alimentado em 5 V e sua saída tambem for 5 V, use divisor resistivo, conversor de nível lógico ou interface adequada antes do GPIO5.
 - Para buzzer de maior corrente ou buzzer de 5 V, use transistor/MOSFET de acionamento, resistor de base/gaté adequado e GND comum. Não alimente carga alta diretamente pelo GPIO.
-- Veja o guia completo em [docs/esquemático-elétrico.md](docs/esquemático-elétrico.md).
+- Veja o guia completo em [docs/esquemático-elétrico.md](docs/esquematico-eletrico.md).
 
 ## Alertas Locais
 
