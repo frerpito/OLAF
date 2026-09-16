@@ -125,7 +125,7 @@ Os GPIOs atuais ficam definidos em `components/app_config/app_config.h`.
 | LED amarelo de recuperação | GPIO2 | GPIO2 -> resistor -> ânodo do LED; cátodo -> GND |
 | Buzzer ativo | GPIO36 | GPIO36 controla o buzzer |
 
-Observacoes importantes:
+Observações importantes:
 
 - Todos os módulos devem compartilhar o mesmo GND.
 - O ESP32 não e tolerante a 5 V nos GPIOs. Se o E18-D80NK estiver alimentado em 5 V e sua saída tambem for 5 V, use divisor resistivo, conversor de nível lógico ou interface adequada antes do GPIO5.
