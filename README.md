@@ -1,10 +1,43 @@
 # OLAF - Observador Local de Ambientes Frigorificados
 
-Sistema IoT embarcado para monitoramento preventivo de camaras frigorificas utilizando ESP32, sensor de temperatura NTC, sensor de porta, alertas locais por LEDs/buzzer e comunicacao remota via MQTT.
+Sistema IoT embarcado para monitoramento preventivo de camaras frigorificas.
 
 Grupo Lamparina
 
+## Sumário
+
+* [Objetivo](#objetivo)
+* [Arquitetura](#arquitetura)
+* [Esquemático Elétrico](#esquematico-eletrico)
+* [Estrutura do Código](#estrutura-do-codigo)
+* [Hardware Necessário](#hardware-necessario)
+* [Ligações Elétricas](#ligacoes-eletricas)
+* [Alertas Locais](#alertas-locais)
+
+  * [LEDs](#leds)
+  * [Buzzer](#buzzer)
+* [Comunicação MQTT](#comunicacao-mqtt)
+* [Dashboard no Grafana](#dashboard-no-grafana)
+* [Pré-requisitos de Software](#pre-requisitos-de-software)
+* [Dependências do Firmware](#dependencias-do-firmware)
+* [Instalação e Configuração](#instalacao-e-configuracao)
+  * [1. Preparar o ambiente de desenvolvimento](#1-Preparar-o-ambiente-de-desenvolvimento)
+  * [2. Clonar o repositório](#2-clonar-o-repositorio)
+  * [3. Abrir no VS Code](#3-abrir-no-vs-code)
+  * [4. Selecionar o alvo do ESP-IDF](#4-selecionar-o-alvo-do-esp-idf)
+  * [5. Configurar Wi-Fi e MQTT](#5-configurar-wi-fi-e-mqtt)
+  * [6. Ajustar parâmetros do projeto](#6-ajustar-parametros-do-projeto)
+* [Como Compilar](#como-compilar)
+* [Como Gravar no ESP32](#como-gravar-no-esp32)
+* [Como Executar e Monitorar](#como-executar-e-monitorar)
+* [Como Confirmar que Funcionou](#como-confirmar-que-funcionou)
+* [Solução de Problemas](#solucao-de-problemas)
+* [Checklist para Entrega Final](#checklist-para-entrega-final)
+* [Equipe](#equipe)
+
+
 ## Objetivo
+A proposta é identificar situações potencialmente prejudiciais antes que ocorram variações térmicas significativas, contribuindo para a conservação dos produtos e para a redução do esforço do sistema de refrigeração.
 
 O OLAF monitora simultaneamente:
 
@@ -25,7 +58,7 @@ O projeto esta organizado em quatro camadas:
 | --- | --- |
 | Sensoriamento | Leitura do NTC 10K e deteccao do estado da porta pelo E18-D80NK |
 | Processamento | ESP32 executando o firmware em ESP-IDF/FreeRTOS |
-| Alertas locais | Tres LEDs e um buzzer ativo para indicar porta, temperatura e recuperacao |
+| Alertas locais | Três LEDs e um buzzer ativo para indicar porta, temperatura e recuperacao |
 | Comunicacao | Wi-Fi e MQTT para enviar dados ao broker e permitir monitoramento remoto |
 
 Fluxo geral:
@@ -60,7 +93,7 @@ Documentacao complementar:
 
 | Item | Quantidade | Observacao |
 | --- | ---: | --- |
-| ESP32-S3 ou placa ESP32 compativel | 1 | O projeto atual foi compilado para ESP32-S3 |
+| ESP32-S3 LoRa V3 ou placa ESP32 compativel | 1 | O projeto atual foi compilado para ESP32-S3 LoRa V3 |
 | Sensor NTC 10K MF52 | 1 | Sensor de temperatura |
 | Resistor 10 kOhm | 1 | Resistor fixo do divisor de tensao do NTC |
 | Sensor de porta E18-D80NK | 1 | Sensor infravermelho usado para detectar porta aberta/fechada |
@@ -205,27 +238,69 @@ Paineis sugeridos:
 
 Para validar o dashboard, primeiro confirme em um cliente MQTT, como HiveMQ WebSocket Client ou MQTT Explorer, que os topicos estao recebendo mensagens. Depois conecte esses mesmos topicos na fonte de dados usada pelo Grafana.
 
-## Pre-Requisitos De Software
+## Pré-requisitos de Software
 
-- Git;
-- Visual Studio Code;
-- extensao Espressif IDF para VS Code;
-- ESP-IDF 5.5.x configurado;
-- driver USB da placa ESP32;
-- terminal do ESP-IDF ou ambiente com `idf.py` no PATH;
-- broker MQTT acessivel pela mesma rede ou pela internet.
-- Grafana ou outra ferramenta de dashboard, caso seja usado monitoramento visual remoto.
+Para configurar, compilar e executar o projeto, são necessários:
 
-## Como Configurar Do Zero
+| Ferramenta                    | Versão       |
+| ----------------------------- | ------------ |
+| Visual Studio Code            | Versão atual |
+| Extensão ESP-IDF para VS Code | 2.2.0        |
+| ESP-IDF                       | 5.5.5        |
+| Git                           | Versão atual |
 
-### 1. Clonar o repositorio
+Também são necessários:
+
+* driver USB compatível com a placa ESP32-S3 LoRa V3;
+* cabo USB de dados para gravação e monitoramento serial;
+* acesso a uma rede Wi-Fi 2,4 GHz, caso seja utilizada a comunicação remota;
+* broker MQTT acessível pela rede local ou pela Internet, caso seja utilizada a comunicação MQTT;
+* Grafana ou outra ferramenta de visualização, caso seja utilizado o monitoramento remoto por dashboard.
+
+## Dependências do Firmware
+
+O firmware utiliza componentes fornecidos pelo próprio **ESP-IDF 5.5.5**, não sendo necessária a instalação manual de bibliotecas externas adicionais.
+
+Os principais componentes utilizados são:
+
+| Componente      | Função no projeto                                                 |
+| --------------- | ----------------------------------------------------------------- |
+| FreeRTOS        | Gerenciamento de tarefas e temporização do sistema                |
+| GPIO            | Leitura do sensor de porta e controle dos LEDs e do buzzer        |
+| ADC             | Leitura analógica do sensor de temperatura NTC                    |
+| ADC Calibration | Calibração das leituras realizadas pelo ADC                       |
+| ESP Timer       | Controle das temporizações utilizadas pela lógica do sistema      |
+| ESP Log         | Registro de mensagens de execução e diagnóstico no monitor serial |
+| ESP Wi-Fi       | Conexão do ESP32 à rede Wi-Fi                                     |
+| ESP-MQTT        | Comunicação entre o ESP32 e o broker MQTT                         |
+
+Esses componentes fazem parte do ESP-IDF e são gerenciados pelo próprio sistema de build do framework.
+
+## Instalação e Configuração
+
+### 1. Preparar o ambiente de desenvolvimento
+
+Instale o **Visual Studio Code** e, em seguida, adicione a extensão **ESP-IDF** da Espressif.
+
+Por meio da extensão, configure o **ESP-IDF 5.5.5** e as ferramentas necessárias para compilação e gravação do firmware.
+
+Após a configuração, verifique se o comando `idf.py` está disponível no terminal do ESP-IDF:
+
+```bash
+idf.py --version
+```
+
+O ambiente deverá reconhecer a instalação do ESP-IDF.
+
+
+### 2. Clonar o repositorio
 
 ```bash
 git clone <URL_DO_REPOSITORIO>
 cd monitoramentor_de_prota
 ```
 
-### 2. Abrir no VS Code
+### 3. Abrir no VS Code
 
 ```bash
 code .
@@ -233,7 +308,7 @@ code .
 
 Tambem e possivel abrir manualmente pelo menu `Arquivo -> Abrir Pasta`.
 
-### 3. Selecionar o alvo do ESP-IDF
+### 4. Selecionar o alvo do ESP-IDF
 
 Para ESP32-S3:
 
@@ -243,7 +318,7 @@ idf.py set-target esp32s3
 
 Se a placa usada for outro modelo de ESP32, selecione o alvo correspondente e confira os GPIOs/ADC em `components/app_config/app_config.h`.
 
-### 4. Configurar Wi-Fi e MQTT
+### 5. Configurar Wi-Fi e MQTT
 
 Abra o menu de configuracao:
 
@@ -267,7 +342,7 @@ Configure:
 
 Salve e saia do menu.
 
-### 5. Ajustar parametros do projeto
+### 6. Ajustar parametros do projeto
 
 Os principais parametros ficam em:
 
