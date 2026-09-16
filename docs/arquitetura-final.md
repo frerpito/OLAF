@@ -1,8 +1,8 @@
 # Arquitetura Final Do OLAF
 
-Este documento descreve a arquitetura final do OLAF para facilitar reproducao, manutencao e avaliacao do projeto.
+Este documento descreve a arquitetura final do OLAF para facilitar reprodução, manutenção e avaliação do projeto.
 
-## Visao Geral
+## Visão Geral
 
 O sistema usa um ESP32 para ler sensores, processar as regras de alerta localmente e enviar dados por MQTT.
 
@@ -25,7 +25,7 @@ flowchart LR
     Broker --> Dashboard[Dashboard/cliente MQTT]
 ```
 
-## Sequencia De Inicializacao
+## Sequência De Inicialização
 
 ```mermaid
 sequenceDiagram
@@ -51,12 +51,12 @@ sequenceDiagram
 A tarefa principal roda periodicamente e executa:
 
 1. leitura/debounce do sensor de porta;
-2. deteccao de abertura e fechamento;
-3. calculo do timeout adaptativo da porta;
+2. detecção de abertura e fechamento;
+3. cálculo do timeout adaptativo da porta;
 4. leitura do NTC a cada periodo configurado;
-5. atualizacao da janela de recuperacao termica;
-6. atualizacao dos LEDs e buzzer;
-7. publicacao dos estados no MQTT quando o broker esta conectado.
+5. atualização da janela de recuperacao termica;
+6. atualização dos LEDs e buzzer;
+7. publicação dos estados no MQTT quando o broker esta conectado.
 
 ```mermaid
 flowchart TD
@@ -85,9 +85,9 @@ flowchart TD
 | --- | --- |
 | `wifi_component` | Configura NVS, netif, eventos Wi-Fi e conecta em modo station |
 | `mqtt_component` | Encapsula cliente MQTT da ESP-IDF |
-| `temperature_ntc` | Le ADC, calcula media, resistencia do NTC e temperatura |
-| `door_sensor` | Le o GPIO da porta com debounce |
-| `adaptive_timeout` | Aprende baseline termico e estima timeout/recuperacao |
+| `temperature_ntc` | Le ADC, calcula média, resistencia do NTC e temperatura |
+| `door_sensor` | Lê o GPIO da porta com debounce |
+| `adaptive_timeout` | Aprende baseline termico e estima timeout/recuperação |
 | `alarm` | Controla LEDs e buzzer sem bloquear a tarefa principal |
 | `app_controller` | Une sensores, regras de negocio, alarmes e MQTT |
 | `app_config` | Centraliza constantes de hardware e comportamento |
@@ -105,36 +105,36 @@ flowchart TD
 
 - temperatura normal: LED azul de temperatura aceso fixo;
 - temperatura fora da faixa: LED azul de temperatura piscando imediatamente;
-- durante recuperacao: LED amarelo de recuperacao aceso e buzzer de temperatura silencioso;
+- durante recuperacao: LED amarelo de recuperação aceso e buzzer de temperatura silencioso;
 - recuperacao falhou: buzzer de temperatura passa a tocar;
 - temperatura voltou ao normal: alarme termico e recuperacao sao cancelados.
 
 ### Prioridade Do Buzzer
 
-A prioridade sonora e:
+A prioridade sonora é:
 
-1. alerta de porta aberta alem do timeout;
-2. alerta de temperatura apos falha de recuperacao;
+1. alerta de porta aberta além do timeout;
+2. alerta de temperatura após falha de recuperação;
 3. bips curtos de abertura/fechamento da porta.
 
-Os LEDs funcionam em paralelo, entao porta, temperatura e recuperacao podem ser indicados visualmente ao mesmo tempo.
+Os LEDs funcionam em paralelo, então porta, temperatura e recuperação podem ser indicados visualmente ao mesmo tempo.
 
 ## MQTT
 
-O envio MQTT acontece depois da leitura de temperatura. Se o cliente MQTT ainda nao estiver conectado, o firmware apenas registra no log e segue mantendo os alertas locais.
+O envio MQTT acontece depois da leitura de temperatura. Se o cliente MQTT ainda não estiver conectado, o firmware apenas registra no log e segue mantendo os alertas locais.
 
-Topicos publicados:
+Tópicos publicados:
 
 - `sensor/temperatura`
 - `sensor/porta`
 - `sensor/alarme`
 - `sensor/tempo_porta`
 
-Topico assinado:
+Tópico assinado:
 
 - `sensor/comando`
 
 Last Will:
 
-- topico: `olaf/status`
+- tópico: `olaf/status`
 - mensagem: `offline`
