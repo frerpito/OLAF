@@ -1,6 +1,6 @@
 # OLAF - Observador Local de Ambientes Frigorificados
 
-Sistema IoT embarcado para monitoramento preventivo de câmaras frigorificas.
+Sistema IoT embarcado para monitoramento preventivo de câmaras frigoríficas.
 
 Grupo Lamparina
 
@@ -16,8 +16,8 @@ O OLAF é um sistema IoT embarcado desenvolvido para o monitoramento preventivo 
 * [Arquitetura](#arquitetura)
 * [Esquemático Elétrico](#esquemático-elétrico)
 * [Estrutura do Código](#estrutura-do-código)
-* [Hardware Necessário](#hardware-necessario)
-* [Ligações Elétricas](#ligações-eletricas)
+* [Hardware Necessário](#hardware-necessário)
+* [Ligações Elétricas](#ligações-elétricas)
 * [Alertas Locais](#alertas-locais)
 
   * [LEDs](#leds)
@@ -25,7 +25,7 @@ O OLAF é um sistema IoT embarcado desenvolvido para o monitoramento preventivo 
 * [Comunicação MQTT](#comunicação-mqtt)
 * [Dashboard no Grafana](#dashboard-no-grafana)
 * [Pré-requisitos de Software](#pre-requisitos-de-software)
-* [Dependências do Firmware](#dependencias-do-firmware)
+* [Dependências do Firmware](#dependências-do-firmware)
 * [Instalação e Configuração](#instalação-e-configuração)
   * [1. Preparar o ambiente de desenvolvimento](#1-Preparar-o-ambiente-de-desenvolvimento)
   * [2. Clonar o repositório](#2-clonar-o-repositório)
@@ -57,7 +57,7 @@ O processamento principal acontece localmente no ESP32. Na versão atual, o firm
 
 ## Arquitetura
 
-O projeto esta organizado em quatro camadas:
+O projeto está organizado em quatro camadas:
 
 | Camada | Função |
 | --- | --- |
@@ -94,13 +94,13 @@ Documentação complementar:
 | `components/mqtt_component` | Inicialização, publicação, assinatura e callback MQTT |
 | `docs` | Diagramas, esquemático elétrico e documentação auxiliar |
 
-## Hardware Necessario
+## Hardware Necessário
 
 | Item | Quantidade | Observação |
 | --- | ---: | --- |
 | ESP32-S3 LoRa V3 ou placa ESP32 compatível | 1 | O projeto atual foi compilado para ESP32-S3 LoRa V3 |
 | Sensor NTC 10K MF52 | 1 | Sensor de temperatura |
-| Resistor 10 kOhm | 1 | Resistor fixo do divisor de tensao do NTC |
+| Resistor 10 kOhm | 1 | Resistor fixo do divisor de tensão do NTC |
 | Sensor de porta E18-D80NK | 1 | Sensor infravermelho usado para detectar porta aberta/fechada |
 | Buzzer piezoelétrico ativo | 1 | Alerta sonoro local |
 | LED vermelho para porta | 1 | Indica estado/alerta da porta |
@@ -108,18 +108,30 @@ Documentação complementar:
 | LED amarelo para recuperação | 1 | Indica janela de recuperação térmica |
 | Resistores 220 Ohm ou 330 Ohm | 3 | Limitação de corrente dos LEDs |
 | Protoboard ou placa de montagem | 1 | Para protótipo |
-| Jumpers | Conforme necessario | Ligações eletricas |
+| Jumpers | Conforme necessário | Ligações elétricas |
 | Fonte 3.3 V/5 V adequada | 1 | Depende da placa e dos sensores usados |
 | Cabo USB de dados | 1 | Gravação e monitor serial |
 
-## Ligações Eletricas
+## Ligações Elétricas
 
-Os GPIOs atuais ficam definidos em `components/app_config/app_config.h`.
+Os GPIOs e parâmetros apresentados abaixo correspondem aos valores padrão do projeto e podem ser alterados pelo `idf.py menuconfig`.
+
+Para configurar o sensor da porta:
+
+```text
+idf.py menuconfig -> Configuração OLAF -> Sensor da Porta
+```
+
+Para configurar a unidade, o canal e a atenuação utilizados pelo ADC do NTC:
+
+```text
+idf.py menuconfig -> Configuração OLAF -> ADC do NTC
+```
 
 | Sinal | GPIO atual | Ligação resumida |
 | --- | --- | --- |
 | Sensor de porta E18-D80NK | GPIO5 | Saída digital do sensor para o GPIO5 |
-| NTC 10K | ADC1_CH3 | Ponto central do divisor de tensao ligado ao canal ADC |
+| NTC 10K | ADC1_CH3 | Ponto central do divisor de tensão ligado ao canal ADC |
 | LED vermelho da porta | GPIO35 | GPIO35 -> resistor -> ânodo do LED; cátodo -> GND |
 | LED azul de temperatura | GPIO42 | GPIO42 -> resistor -> ânodo do LED; cátodo -> GND |
 | LED amarelo de recuperação | GPIO2 | GPIO2 -> resistor -> ânodo do LED; cátodo -> GND |
@@ -128,13 +140,13 @@ Os GPIOs atuais ficam definidos em `components/app_config/app_config.h`.
 Observações importantes:
 
 - Todos os módulos devem compartilhar o mesmo GND.
-- O ESP32 não e tolerante a 5 V nos GPIOs. Se o E18-D80NK estiver alimentado em 5 V e sua saída tambem for 5 V, use divisor resistivo, conversor de nível lógico ou interface adequada antes do GPIO5.
+- O ESP32 não é tolerante a 5 V nos GPIOs. Se o E18-D80NK estiver alimentado em 5 V e sua saída também for 5 V, use divisor resistivo, conversor de nível lógico ou interface adequada antes do GPIO5.
 - Para buzzer de maior corrente ou buzzer de 5 V, use transistor/MOSFET de acionamento, resistor de base/gaté adequado e GND comum. Não alimente carga alta diretamente pelo GPIO.
 - Veja o guia completo em [docs/esquemático-elétrico.md](docs/esquematico-eletrico.md).
 
 ## Alertas Locais
 
-O firmware utiliza tres LEDs independentes e um buzzer ativo.
+O firmware utiliza três LEDs independentes e um buzzer ativo.
 
 ### LEDs
 
@@ -143,12 +155,12 @@ O firmware utiliza tres LEDs independentes e um buzzer ativo.
 | Porta | Vermelho | GPIO35 | Apagado | Porta fechada |
 | Porta | Vermelho | GPIO35 | Aceso fixo | Porta aberta, ainda dentro do tempo permitido |
 | Porta | Vermelho | GPIO35 | Piscando | Porta aberta além do timeout adaptativo; a porta deve ser fechada |
-| Temperatura | Azul | GPIO42 | Aceso fixo | Temperatura dentro da faixa aceitavel |
-| Temperatura | Azul | GPIO42 | Piscando | Temperatura fora da faixa aceitavel; o sistema esta aguardando recuperação ou ja confirmou alerta térmico |
-| Recuperação | Amarelo | GPIO2 | Apagado | Não ha recuperação térmica em andamento |
-| Recuperação | Amarelo | GPIO2 | Aceso fixo | Janela de recuperação ativa enquanto a temperatura ainda esta fora da faixa aceitavel |
+| Temperatura | Azul | GPIO42 | Aceso fixo | Temperatura dentro da faixa aceitável |
+| Temperatura | Azul | GPIO42 | Piscando | Temperatura fora da faixa aceitável; o sistema está aguardando recuperação ou já confirmou alerta térmico |
+| Recuperação | Amarelo | GPIO2 | Apagado | Não há recuperação térmica em andamento |
+| Recuperação | Amarelo | GPIO2 | Aceso fixo | Janela de recuperação ativa enquanto a temperatura ainda está fora da faixa aceitável |
 
-O período de pisca dos LEDs e definido por `OLAF_LED_BLINK_PERIOD_MS`, atualmente `500 ms`.
+O período de pisca dos LEDs é definido por `OLAF_LED_BLINK_PERIOD_MS`, atualmente `500 ms`.
 
 ### Buzzer
 
@@ -159,7 +171,7 @@ O período de pisca dos LEDs e definido por `OLAF_LED_BLINK_PERIOD_MS`, atualmen
 | Porta aberta além do timeout | Buzzer alterna 1 segundo ligado e 1 segundo desligado até a porta ser fechada | Alta |
 | Temperatura fora da faixa durante recuperação | Buzzer fica silencioso; apenas os LEDs indicam a condição | Nenhuma |
 | Recuperação falhou e temperatura continua fora da faixa | Buzzer de temperatura toca alternadamente. Ele toca durante um período equivalente ao tempo de recuperação estimado e depois fica silencioso pelo mesmo período, repetindo o ciclo enquanto o problema persistir | Média |
-| Temperatura voltou ao normal | Buzzer de temperatura desliga | - |
+| Temperatura voltou ao normal | Buzzer de temperatura desliga | Nenhuma |
 
 A prioridade sonora do sistema e:
 
@@ -167,11 +179,11 @@ A prioridade sonora do sistema e:
 2. alerta de temperatura após falha da recuperação;
 3. bips curtos de abertura/fechamento da porta.
 
-Isso significa que, se a porta e a temperatura estiverem em alerta ao mesmo tempo, o buzzer primeiro aténde o alerta da porta. Quando a porta for fechada, o sistema volta a considerar o alarme de temperatura, caso ele ainda esteja ativo.
+Isso significa que, se a porta e a temperatura estiverem em alerta ao mesmo tempo, o buzzer primeiro atende o alerta da porta. Quando a porta for fechada, o sistema volta a considerar o alarme de temperatura, caso ele ainda esteja ativo.
 
 ## Comunicação MQTT
 
-O broker e configurado por `idf.py menuconfig` em:
+O broker é configurado por `idf.py menuconfig` em:
 
 ```text
 Configuração do Projeto -> MQTT Broker URI
@@ -190,14 +202,14 @@ Tópicos usados pelo firmware:
 | --- | --- | --- |
 | `sensor/temperatura` | Publicação | Temperatura em graus Celsius, exemplo `25.42` |
 | `sensor/porta` | Publicação | `aberta` ou `fechada` |
-| `sensor/alarme` | Publicação | `1` quando ha alarme de temperatura confirmado, `0` caso contrario |
+| `sensor/alarme` | Publicação | `1` quando há alarme de temperatura confirmado, `0` caso contrário |
 | `sensor/tempo_porta` | Publicação | Tempo de porta aberta em segundos |
 | `sensor/comando` | Assinatura | Tópico reservado para comandos recebidos pelo dispositivo |
 | `olaf/status` | Last Will | Publica `offline` se a conexão MQTT cair de forma inesperada |
 
 As publicações usam QoS 1 e retain 0.
 
-Se o Wi-Fi não conectar na inicialização, o sistema entra em modo local: sensores, LEDs e buzzer continuam funcionando, mas os dados não sao publicados no MQTT. O número de tentativas de conexão Wi-Fi e definido no firmware por `WIFI_MAX_RETRY`, atualmente `10`.
+Se o Wi-Fi não conectar na inicialização, o sistema entra em modo local: sensores, LEDs e buzzer continuam funcionando, mas os dados não são publicados no MQTT. O número de tentativas de conexão Wi-Fi é definido no firmware por `WIFI_MAX_RETRY`, atualmente `10`.
 
 ## Dashboard no Grafana
 
@@ -214,10 +226,10 @@ O Grafana não recebe MQTT diretamente em uma instalação padrão. Para visuali
 | Opção | Descrição |
 | --- | --- |
 | Plugin MQTT/Data Source para Grafana | O Grafana assina os tópicos MQTT por meio de um plugin compatível |
-| Node-RED + banco de dados | O Node-RED assina o MQTT e grava em InfluxDB, PostgreSQL ou outro banco; o Grafana le o banco |
+| Node-RED + banco de dados | O Node-RED assina o MQTT e grava em InfluxDB, PostgreSQL ou outro banco; o Grafana lê o banco |
 | Telegraf + InfluxDB | O Telegraf assina o MQTT, salva no InfluxDB e o Grafana monta os painéis |
 
-Paineis utilizados:
+Painéis utilizados:
 
 | Painel | Tópico MQTT | Tipo recomendado |
 | --- | --- | --- |
@@ -226,7 +238,7 @@ Paineis utilizados:
 | Alarme de temperatura | `sensor/alarme` | Stat ou alerta |
 | Tempo de porta aberta | `sensor/tempo_porta` | Gauge ou Time series |
 
-Para validar o dashboard, primeiro confirme em um cliente MQTT, como HiveMQ WebSocket Client ou MQTT Explorer, que os tópicos estao recebendo mensagens. Depois conecte esses mesmos tópicos na fonte de dados usada pelo Grafana.
+Para validar o dashboard, primeiro confirme em um cliente MQTT, como HiveMQ WebSocket Client ou MQTT Explorer, que os tópicos estão recebendo mensagens. Depois conecte esses mesmos tópicos na fonte de dados usada pelo Grafana.
 
 ## Pré-requisitos de Software
 
@@ -296,7 +308,7 @@ cd monitoramentor_de_prota
 code .
 ```
 
-Também e possivel abrir manualmente pelo menu `Arquivo -> Abrir Pasta`.
+Também e possível abrir manualmente pelo menu `Arquivo -> Abrir Pasta`.
 
 ### 4. Selecionar o alvo do ESP-IDF
 
@@ -308,15 +320,17 @@ idf.py set-target esp32s3
 
 Se a placa usada for outro modelo de ESP32, selecione o alvo correspondente e confira os GPIOs/ADC em `components/app_config/app_config.h`.
 
-### 5. Configurar Wi-Fi e MQTT
+### 5. Configurar Wi-Fi, MQTT e parâmetros do OLAF
 
-Abra o menu de configuração:
+Abra o menu de configuração do projeto:
 
 ```bash
 idf.py menuconfig
 ```
 
-Entre em:
+O menu permite configurar os parâmetros do firmware sem alterar diretamente os arquivos-fonte.
+
+Para configurar as credenciais e a comunicação MQTT, entre em:
 
 ```text
 Configuração do Projeto
@@ -330,26 +344,146 @@ Configure:
 | `WiFi Password` | Senha da rede |
 | `MQTT Broker URI` | `mqtt://broker.hivemq.com` ou `mqtt://IP_DO_BROKER:1883` |
 
-Salve e saia do menu.
+Para configurar os parâmetros específicos do OLAF, entre em:
+
+```text
+Configuração OLAF
+```
+
+Nesse menu estão disponíveis as configurações de hardware e comportamento do sistema, organizadas nos seguintes grupos:
+
+| Menu | Principais configurações |
+| --- | --- |
+| `Sensor da Porta` | GPIO do sensor, nível lógico de porta fechada e debounce |
+| `Saídas` | GPIOs dos LEDs e do buzzer |
+| `ADC do NTC` | Unidade ADC, canal ADC e atenuação |
+| `Parâmetros do NTC` | Resistência nominal, temperatura de referência, constante Beta, resistor fixo e número de amostras |
+| `Temporização da Aplicação` | Período da aplicação e intervalo de leitura da temperatura |
+| `Alarme de Temperatura` | Limites de temperatura normal, alarme de alta temperatura e limpeza do alarme |
+| `Timeout Adaptativo` | Timeout base, mínimo e máximo |
+| `Recuperação Térmica` | Tempo de referência e tempo de estabilidade da recuperação |
+| `Médias Móveis` | Alpha do baseline e alpha da recuperação |
+| `LED` | Período de piscagem dos LEDs |
+| `Buzzer` | Duração e intervalo dos beeps e dos ciclos de alerta |
+
+Após realizar as alterações, selecione `Save` e saia do menu de configuração.
 
 ### 6. Ajustar parâmetros do projeto
 
-Os principais parâmetros ficam em:
+Os parâmetros do sistema são configuráveis pelo `idf.py menuconfig`, no menu:
 
 ```text
-components/app_config/app_config.h
+Configuração OLAF
 ```
 
-Valores importantes:
+As configurações são organizadas por categoria:
 
-| Constante | Função | Valor atual |
-| --- | --- | --- |
-| `OLAF_TEMP_NORMAL_MAX_C` | Limite superior da faixa aceitavel de temperatura | `35.0f` |
-| `OLAF_TIMEOUT_BASE_S` | Timeout inicial da porta aberta | `300.0f` |
-| `OLAF_TIMEOUT_MIN_S` | Menor timeout permitido | `30.0f` |
-| `OLAF_TIMEOUT_MAX_S` | Maior timeout permitido | `420.0f` |
-| `OLAF_RECOVERY_TARGET_S` | Tempo de recuperação usado como referência | `300.0f` |
-| `OLAF_LED_BLINK_PERIOD_MS` | Periodo de pisca dos LEDs | `500` |
+#### Sensor da Porta
+
+Permite configurar:
+
+- GPIO do sensor da porta;
+- nível lógico que representa a porta fechada;
+- tempo de debounce do sensor.
+
+Os valores padrão são GPIO `5`, nível lógico `LOW` e debounce de `80 ms`.
+
+#### Saídas
+
+Permite configurar os GPIOs utilizados pelos dispositivos de saída:
+
+- LED de alerta da porta: GPIO `35`;
+- LED de alerta de temperatura: GPIO `42`;
+- LED de recuperação térmica: GPIO `2`;
+- buzzer: GPIO `36`.
+
+#### ADC do NTC
+
+Permite selecionar:
+
+- unidade do ADC;
+- canal do ADC;
+- atenuação do ADC.
+
+Os valores padrão são ADC1, canal 3 e atenuação de `12 dB`.
+
+#### Parâmetros do NTC
+
+Permite configurar:
+
+| Parâmetro | Valor padrão |
+| --- | ---: |
+| Resistência nominal | `10000 Ω` |
+| Temperatura de referência | `25 °C` |
+| Constante Beta | `3950` |
+| Resistor fixo | `10000 Ω` |
+| Tensão de alimentação do ADC | `3300 mV` |
+| Amostras do ADC por leitura | `32` |
+
+Esses parâmetros são utilizados no cálculo da temperatura a partir do NTC.
+
+#### Temporização da Aplicação
+
+Permite configurar:
+
+| Parâmetro | Valor padrão |
+| --- | ---: |
+| Período da aplicação | `200 ms` |
+| Período de leitura da temperatura | `1000 ms` |
+
+#### Alarme de Temperatura
+
+Permite configurar:
+
+| Parâmetro | Valor padrão |
+| --- | ---: |
+| Temperatura mínima normal | `24 °C` |
+| Temperatura máxima normal | `35 °C` |
+| Temperatura para alarme de alta temperatura | `36 °C` |
+| Limite para limpar o alarme | `28 °C` |
+
+#### Timeout Adaptativo
+
+Permite configurar:
+
+| Parâmetro | Valor padrão |
+| --- | ---: |
+| Timeout base | `300 s` |
+| Timeout mínimo | `30 s` |
+| Timeout máximo | `420 s` |
+
+#### Recuperação Térmica
+
+Permite configurar:
+
+| Parâmetro | Valor padrão |
+| --- | ---: |
+| Tempo de referência para recuperação | `300 s` |
+| Tempo de estabilidade da recuperação | `20 s` |
+
+#### Médias Móveis
+
+Permite configurar os fatores `alpha` utilizados pelas médias móveis:
+
+| Parâmetro | Valor padrão |
+| --- | ---: |
+| Alpha do baseline | `0.02` |
+| Alpha da recuperação | `0.20` |
+
+#### LED
+
+Permite configurar o período de piscagem dos LEDs. O valor padrão é `500 ms`.
+
+#### Buzzer
+
+Permite configurar:
+
+| Parâmetro | Valor padrão |
+| --- | ---: |
+| Duração do beep curto | `90 ms` |
+| Pausa entre beeps curtos | `80 ms` |
+| Buzzer ligado durante alerta | `1000 ms` |
+| Buzzer desligado durante alerta | `1000 ms` |
 
 ## Como Compilar
 
@@ -424,13 +558,13 @@ T=25.40 C | porta=FECHADA | tempo=0.0 s | limite=300.0 s
 Teste local:
 
 1. Feche a porta/simule o sensor detectando a porta fechada.
-2. Abra a porta/simule a ausencia de detecção.
+2. Abra a porta/simule a ausência de detecção.
 3. Confirme dois bips curtos no buzzer.
 4. Confirme LED da porta aceso fixo.
 5. Mantenha a porta aberta além do timeout e confirme LED da porta piscando e buzzer alternando.
-6. Aqueca o NTC ou simule temperatura acima do limite.
+6. Aqueça o NTC ou simule temperatura acima do limite.
 7. Confirme LED de temperatura piscando e LED de recuperação aceso.
-8. Confirme que o buzzer de temperatura so dispara se a temperatura não voltar ao normal depois da janela de recuperação.
+8. Confirme que o buzzer de temperatura só dispara se a temperatura não voltar ao normal depois da janela de recuperação.
 
 Teste MQTT com HiveMQ WebSocket Client ou outro cliente MQTT:
 
@@ -445,11 +579,11 @@ Teste MQTT com HiveMQ WebSocket Client ou outro cliente MQTT:
 | --- | --- | --- |
 | `CONFIG_WIFI_SSID vazio` | Wi-Fi não configurado | Rode `idf.py menuconfig` e preencha SSID/senha |
 | Wi-Fi não conecta | Rede 5 GHz, senha incorreta ou sinal fraco | Use rede 2.4 GHz e confira credenciais |
-| MQTT não conecta | Broker URI incorreto ou sem rede | Teste o broker em outro cliente MQTT e confira URI |
-| Sensor de porta invertido | Nivel lógico diferente do esperado | Ajuste `OLAF_DOOR_CLOSED_LEVEL` em `app_config.h` |
-| Temperatura muito errada | Canal ADC, divisor ou Beta incorretos | Confira o divisor NTC, `OLAF_NTC_ADC_CHANNEL` e `OLAF_NTC_BETA` |
-| LED não acende | Polaridade invertida ou GPIO diferente | Confira resistor, ânodo/cátodo e GPIO |
-| Buzzer não toca | Buzzer passivo, ligação incorreta ou corrente insuficiente | Use buzzer ativo ou circuito de acionamento |
+| MQTT não conecta | Broker URI incorreto ou sem rede | Rode `idf.py menuconfig`, confira a `MQTT Broker URI` e teste o broker em outro cliente MQTT |
+| Sensor de porta invertido | Nível lógico diferente do esperado | Em `idf.py menuconfig`, acesse `Configuração OLAF -> Sensor da Porta` e ajuste o nível lógico da porta fechada |
+| Temperatura muito errada | Canal ADC, divisor ou parâmetros do NTC incorretos | Em `idf.py menuconfig`, acesse `Configuração OLAF -> ADC do NTC` e `Parâmetros do NTC` e confira as configurações |
+| LED não acende | Polaridade invertida ou GPIO diferente | Confira resistor, ânodo/cátodo e o GPIO configurado em `Configuração OLAF -> Saídas` |
+| Buzzer não toca | Buzzer passivo, ligação incorreta ou corrente insuficiente | Use buzzer ativo ou circuito de acionamento e confira o GPIO em `Configuração OLAF -> Saídas` |
 
 ## Equipe
 
