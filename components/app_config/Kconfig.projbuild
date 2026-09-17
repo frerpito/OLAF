@@ -1,18 +1,19 @@
 menu "Configuração do Projeto"
 
-config WIFI_SSID
-    string "WiFi SSID"
-    default ""
+    config WIFI_SSID
+        string "WiFi SSID"
+        default ""
 
-config WIFI_PASSWORD
-    string "WiFi Password"
-    default ""
+    config WIFI_PASSWORD
+        string "WiFi Password"
+        default ""
 
-config MQTT_BROKER_URI
-    string "MQTT Broker URI"
-    default "mqtt://broker.hivemq.com"
+    config MQTT_BROKER_URI
+        string "MQTT Broker URI"
+        default "mqtt://broker.hivemq.com"
 
 endmenu
+
 
 menu "Configuração OLAF"
 
@@ -177,13 +178,14 @@ menu "Configuração OLAF"
             help
                 Resistência nominal do NTC na temperatura de referência.
 
-        config OLAF_NTC_T0_X10
+        config OLAF_NTC_T0_C
             int "Temperatura de referência do NTC (°C x10)"
             default 250
             range -400 1500
             help
                 Temperatura de referência do NTC multiplicada por 10.
                 Exemplo: 25,0 °C = 250.
+                O valor é convertido para float no app_config.h.
 
         config OLAF_NTC_BETA
             int "Constante Beta do NTC"
@@ -248,23 +250,25 @@ menu "Configuração OLAF"
 
     menu "Alarme de Temperatura"
 
-        config OLAF_TEMP_NORMAL_MIN_X10
+        config OLAF_TEMP_NORMAL_MIN_C
             int "Temperatura mínima normal (°C x10)"
             default 240
             range -400 1500
             help
                 Temperatura mínima normal multiplicada por 10.
                 Exemplo: 24,0 °C = 240.
+                O valor é convertido para float no app_config.h.
 
-        config OLAF_TEMP_NORMAL_MAX_X10
+        config OLAF_TEMP_NORMAL_MAX_C
             int "Temperatura máxima normal (°C x10)"
             default 350
             range -400 1500
             help
                 Temperatura máxima normal multiplicada por 10.
                 Exemplo: 35,0 °C = 350.
+                O valor é convertido para float no app_config.h.
 
-        config OLAF_TEMP_ALARM_HIGH_X10
+        config OLAF_TEMP_ALARM_HIGH_C
             int "Temperatura para alarme de alta temperatura (°C x10)"
             default 360
             range -400 1500
@@ -272,8 +276,9 @@ menu "Configuração OLAF"
                 Temperatura para ativação do alarme de alta temperatura,
                 multiplicada por 10.
                 Exemplo: 36,0 °C = 360.
+                O valor é convertido para float no app_config.h.
 
-        config OLAF_TEMP_ALARM_CLEAR_X10
+        config OLAF_TEMP_ALARM_CLEAR_C
             int "Limite para limpar o alarme de temperatura (°C x10)"
             default 280
             range -400 1500
@@ -281,6 +286,7 @@ menu "Configuração OLAF"
                 Temperatura abaixo da qual o alarme pode ser limpo,
                 multiplicada por 10.
                 Exemplo: 28,0 °C = 280.
+                O valor é convertido para float no app_config.h.
 
     endmenu
 
@@ -346,21 +352,23 @@ menu "Configuração OLAF"
 
     menu "Médias Móveis"
 
-        config OLAF_BASELINE_ALPHA_X1000
+        config OLAF_BASELINE_ALPHA
             int "Alpha da média móvel do baseline (x1000)"
             default 20
             range 1 1000
             help
                 Valor de alpha multiplicado por 1000.
                 Exemplo: 0,02 = 20.
+                O valor é convertido para float no app_config.h.
 
-        config OLAF_RECOVERY_ALPHA_X1000
+        config OLAF_RECOVERY_ALPHA
             int "Alpha da média móvel da recuperação (x1000)"
             default 200
             range 1 1000
             help
                 Valor de alpha multiplicado por 1000.
                 Exemplo: 0,20 = 200.
+                O valor é convertido para float no app_config.h.
 
     endmenu
 
